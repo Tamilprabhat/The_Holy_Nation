@@ -28,7 +28,7 @@ jobs:
 
       - name: Generate Android Project
         run: |
-          flutter create .
+          flutter create --org com.theholynation --project-name the_holy_nation .
           git checkout HEAD -- lib pubspec.yaml || true
 
       - name: Get Dependencies
@@ -42,4 +42,3 @@ jobs:
         with:
           name: The-Holy-Nation-APK
           path: build/app/outputs/flutter-apk/app-release.apk
-          
