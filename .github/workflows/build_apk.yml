@@ -26,6 +26,11 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Generate Android Project
+        run: |
+          flutter create .
+          git checkout HEAD -- lib pubspec.yaml || true
+
       - name: Get Dependencies
         run: flutter pub get
 
