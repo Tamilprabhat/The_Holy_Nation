@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/local/database_helper.dart';
+import 'bible_reading_screen.dart'; // இதுதான் நாம் சேர்க்க வேண்டிய முக்கியமான வரி!
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -11,7 +12,6 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  // வேதாகமப் புத்தகங்களைக் காட்டும் புதிய UI
   Widget _buildBibleScreen() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: DatabaseHelper.instance.getAllBooks(),
@@ -36,7 +36,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 child: Text(book['id'].toString()),
               ),
               onTap: () {
-                // அடுத்த கட்டத்தில் அதிகாரங்களைக் காட்டுவதற்கான வழி
+                // புத்தகத்தைத் தொட்டால் அதிகாரங்கள்/வசனங்கள் திரைக்குச் செல்லும்
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BibleReadingScreen(book: book),
+                  ),
+                );
               },
             );
           },
@@ -45,10 +51,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  // 5 மெனுக்களுக்கான திரைகள்
   List<Widget> get _pages => [
     const Center(child: Text('Home Feed\n(சமூகப் பகிர்வு)', textAlign: TextAlign.center)),
-    _buildBibleScreen(), // இங்கே புதிய Bible திரையை இணைத்துள்ளோம்!
+    _buildBibleScreen(),
     const Center(child: Text('Pas D\n(AI Digital Pastor)', textAlign: TextAlign.center)),
     const Center(child: Text('Community\n(குழுக்கள் & உரையாடல்)', textAlign: TextAlign.center)),
     const Center(child: Text('Profile\n(பயனர் சுயவிவரம்)', textAlign: TextAlign.center)),
