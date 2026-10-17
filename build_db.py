@@ -1,54 +1,61 @@
-import urllib.request
-import json
 import sqlite3
 import os
 
+# Create assets directory if not exists
 os.makedirs('assets', exist_ok=True)
+db_path = 'assets/holy_nation.db'
 
-print("Downloading Tamil & English Bibles...")
-# தமிழ் மற்றும் ஆங்கில பைபிள் தரவுகளைப் பெறுதல்
-req_ta = urllib.request.Request("https://raw.githubusercontent.com/godlytalias/Bible-Database/master/Tamil/bible.json")
-with urllib.request.urlopen(req_ta) as response:
-    ta_data = json.loads(response.read().decode('utf-8'))
+if os.path.exists(db_path):
+    os.remove(db_path)
 
-req_en = urllib.request.Request("https://raw.githubusercontent.com/godlytalias/Bible-Database/master/English%20(KJV)/bible.json")
-with urllib.request.urlopen(req_en) as response:
-    en_data = json.loads(response.read().decode('utf-8'))
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
 
-# SQLite Database உருவாக்குதல்
-conn = sqlite3.connect('assets/holy_nation.db')
-c = conn.cursor()
+# Create tables
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS books (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    testament TEXT,
+    chapters_count INTEGER
+)
+''')
 
-c.execute('''CREATE TABLE IF NOT EXISTS books (
-                id INTEGER PRIMARY KEY,
-                testament TEXT NOT NULL,
-                name_ta TEXT NOT NULL,
-                name_en TEXT NOT NULL)''')
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS verses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id INTEGER,
+    chapter INTEGER,
+    verse INTEGER,
+    text TEXT,
+    FOREIGN KEY(book_id) REFERENCES books(id)
+)
+''')
 
-c.execute('''CREATE TABLE IF NOT EXISTS verses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                book_id INTEGER NOT NULL,
-                chapter INTEGER NOT NULL,
-                verse INTEGER NOT NULL,
-                text_ta TEXT NOT NULL,
-                text_en TEXT NOT NULL,
-                FOREIGN KEY (book_id) REFERENCES books (id))''')
+# Sample Books
+books_data = [
+    (1, 'ஆதியாகமம் (Genesis)', 'Old', 50),
+    (2, 'யாத்திராகமம் (Exodus)', 'Old', 40),
+    (19, 'சங்கீதம் (Psalms)', 'Old', 150),
+    (40, 'மத்தேயு (Matthew)', 'New', 28),
+    (43, 'யோவான் (John)', 'New', 21),
+    (66, 'வெளிப்படுத்தின விசேஷம் (Revelation)', 'New', 22),
+]
 
-book_id = 1
-for ta_book, en_book in zip(ta_data, en_data):
-    testament = 'OT' if book_id <= 39 else 'NT'
-    c.execute('INSERT INTO books (id, testament, name_ta, name_en) VALUES (?, ?, ?, ?)', 
-              (book_id, testament, ta_book['name'], en_book['name']))
-    
-    for ta_chapter, en_chapter in zip(ta_book['data'], en_book['data']):
-        chapter_num = int(ta_chapter['chapter'])
-        for v_num_str, text_ta in ta_chapter['verses'].items():
-            verse_num = int(v_num_str)
-            text_en = en_chapter['verses'].get(v_num_str, "")
-            c.execute('INSERT INTO verses (book_id, chapter, verse, text_ta, text_en) VALUES (?, ?, ?, ?, ?)',
-                      (book_id, chapter_num, verse_num, text_ta, text_en))
-    book_id += 1
+cursor.executemany('INSERT INTO books VALUES (?, ?, ?, ?)', books_data)
+
+# Sample Verses
+verses_data = [
+    (1, 1, 1, 'ஆதியிலே தேவன் வானத்தையும் பூமியையும் சிருஷ்டித்தார்.'),
+    (1, 1, 2, 'பூமியானது ஒழுங்கின்மையும் வெறுமையுமாய் இருந்தது; ஆழத்தின்மேல் இருள் இருந்தது; தேவ ஆவியானவர் ஜலத்தின்மேல் அசைவாடிக்கொண்டிருந்தார்.'),
+    (1, 1, 3, 'தேவன் வெளிச்சம் உண்டாகக்கடவது என்றார், வெளிச்சம் உண்டாயிற்று.'),
+    (43, 3, 16, 'தேவன், தம்முடைய ஒரேபேறான குமாரனை விசுவாசிக்கிறவன் எவனோ அவன் கெட்டுப்போகாமல் நித்தியஜீவனை அடையும்படிக்கு, அவரைத் தந்தருளி, இவ்வளவாய் உலகத்தில் அன்புகூர்ந்தார்.'),
+    (19, 23, 1, 'கர்த்தர் என் மேய்ப்பராயிருக்கிறார்; நான் தாழ்ச்சியடையேன்.'),
+]
+
+cursor.executemany('INSERT INTO verses (book_id, chapter, verse, text) VALUES (?, ?, ?, ?)', verses_data)
 
 conn.commit()
 conn.close()
-print("Database holy_nation.db successfully built!")
+
+print("Successfully generated holy_nation.db inside assets folder!")
