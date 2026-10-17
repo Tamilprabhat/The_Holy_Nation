@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/local/database_helper.dart';
-import 'bible_reading_screen.dart'; // இதுதான் நாம் சேர்க்க வேண்டிய முக்கியமான வரி!
+import 'bible_reading_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -10,40 +10,80 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _currentIndex = 0;
+  int _currentIndex = 1;
 
-  Widget _buildBibleScreen() {
+  void _openBibleReading(Map<String, dynamic> book) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BibleReadingScreen(book: book),
+      ),
+    );
+  }
+
+  Widget _buildHomeTab() {
+    return const Center(
+      child: Text('Home Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+    );
+  }
+
+  Widget _buildBibleTab() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: DatabaseHelper.instance.getAllBooks(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return const Center(child: Text('Error loading books'));
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No books found.'));
+          return const Center(child: CircularProgressIndicator(color: Colors.indigoAccent));
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: const TextStyle(color: Colors.redAccent),
+            ),
+          );
+        }
+        final books = snapshot.data ?? [];
+        if (books.isEmpty) {
+          return const Center(
+            child: Text(
+              'புத்தகங்கள் எதுவும் காணப்படவில்லை',
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+          );
         }
 
-        final books = snapshot.data!;
-        return ListView.builder(
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
           itemCount: books.length,
+          separatorBuilder: (context, index) => const Divider(color: Colors.white10),
           itemBuilder: (context, index) {
             final book = books[index];
             return ListTile(
-              title: Text(book['name_ta'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              subtitle: Text(book['name_en']),
-              leading: CircleAvatar(
-                child: Text(book['id'].toString()),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              onTap: () {
-                // புத்தகத்தைத் தொட்டால் அதிகாரங்கள்/வசனங்கள் திரைக்குச் செல்லும்
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BibleReadingScreen(book: book),
-                  ),
-                );
-              },
+              tileColor: const Color(0xFF1E1E2C),
+              leading: CircleAvatar(
+                backgroundColor: Colors.indigoAccent,
+                child: Text(
+                  '${book['id']}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+              title: Text(
+                book['name'] ?? '',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Text(
+                '${book['testament'] ?? ''} Testament • ${book['chapters_count'] ?? 0} Chapters',
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+              onTap: () => _openBibleReading(book),
             );
           },
         );
@@ -51,62 +91,63 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  List<Widget> get _pages => [
-    const Center(child: Text('Home Feed\n(சமூகப் பகிர்வு)', textAlign: TextAlign.center)),
-    _buildBibleScreen(),
-    const Center(child: Text('Pas D\n(AI Digital Pastor)', textAlign: TextAlign.center)),
-    const Center(child: Text('Community\n(குழுக்கள் & உரையாடல்)', textAlign: TextAlign.center)),
-    const Center(child: Text('Profile\n(பயனர் சுயவிவரம்)', textAlign: TextAlign.center)),
-  ];
+  Widget _buildPasDTab() {
+    return const Center(
+      child: Text('Pas D Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+    );
+  }
 
-  final List<String> _titles = const [
-    'Home',
-    'Bible',
-    'Pas D',
-    'Community',
-    'Profile',
-  ];
+  Widget _buildCommunityTab() {
+    return const Center(
+      child: Text('Community Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+    );
+  }
+
+  Widget _buildProfileTab() {
+    return const Center(
+      child: Text('Profile Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      _buildHomeTab(),
+      _buildBibleTab(),
+      _buildPasDTab(),
+      _buildCommunityTab(),
+      _buildProfileTab(),
+    ];
+
     return Scaffold(
+      backgroundColor: const Color(0xFF12121E),
       appBar: AppBar(
-        title: Text(_titles[_currentIndex]),
+        title: Text(
+          _currentIndex == 1 ? 'Bible' : 'The Holy Nation',
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        backgroundColor: const Color(0xFF1E1E2C),
+        elevation: 0,
+        centerTitle: true,
       ),
-      body: _pages[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (int index) {
+      body: screens[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
           setState(() {
             _currentIndex = index;
           });
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Bible',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.smart_toy_outlined),
-            selectedIcon: Icon(Icons.smart_toy),
-            label: 'Pas D',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.forum_outlined),
-            selectedIcon: Icon(Icons.forum),
-            label: 'Community',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color(0xFF1E1E2C),
+        selectedItemColor: Colors.indigoAccent,
+        unselectedItemColor: Colors.white54,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Bible'),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: 'Pas D'),
+          BottomNavigationBarItem(icon: Icon(Icons.forum), label: 'Community'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
