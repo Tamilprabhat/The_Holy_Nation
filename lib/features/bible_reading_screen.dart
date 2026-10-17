@@ -1,140 +1,155 @@
 import 'package:flutter/material.dart';
 import '../data/local/database_helper.dart';
+import 'bible_reading_screen.dart';
 
-class BibleReadingScreen extends StatefulWidget {
-  final Map<String, dynamic> book;
-  final int initialChapter;
-
-  const BibleReadingScreen({
-    super.key,
-    required this.book,
-    this.initialChapter = 1,
-  });
+class MainNavigationScreen extends StatefulWidget {
+  const MainNavigationScreen({super.key});
 
   @override
-  State<BibleReadingScreen> createState() => _BibleReadingScreenState();
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _BibleReadingScreenState extends State<BibleReadingScreen> {
-  late int _selectedChapter;
-  int _totalChapters = 1;
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _verses = [];
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  int _currentIndex = 1; // துவக்கத்திலேயே Bible Tab தெரியுமாறு வைக்கப்பட்டுள்ளது
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedChapter = widget.initialChapter;
-    _initData();
-  }
-
-  Future<void> _initData() async {
-    final count = await DatabaseHelper.instance.getChapterCount(widget.book['id']);
-    if (mounted) {
-      setState(() {
-        _totalChapters = count > 0 ? count : 1;
-      });
-      _loadVerses();
-    }
-  }
-
-  Future<void> _loadVerses() async {
-    setState(() => _isLoading = true);
-    final data = await DatabaseHelper.instance.getVerses(
-      widget.book['id'],
-      _selectedChapter,
+  void _openBibleReading(Map<String, dynamic> book) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BibleReadingScreen(book: book),
+      ),
     );
-    if (mounted) {
-      setState(() {
-        _verses = data;
-        _isLoading = false;
-      });
-    }
+  }
+
+  Widget _buildHomeTab() {
+    return const Center(
+      child: Text('Home Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+    );
+  }
+
+  Widget _buildBibleTab() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: DatabaseHelper.instance.getAllBooks(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Colors.indigoAccent));
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: const TextStyle(color: Colors.redAccent),
+            ),
+          );
+        }
+        final books = snapshot.data ?? [];
+        if (books.isEmpty) {
+          return const Center(
+            child: Text(
+              'புத்தகங்கள் எதுவும் காணப்படவில்லை',
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: books.length,
+          separatorBuilder: (context, index) => const Divider(color: Colors.white10),
+          itemBuilder: (context, index) {
+            final book = books[index];
+            return ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              tileColor: const Color(0xFF1E1E2C),
+              leading: CircleAvatar(
+                backgroundColor: Colors.indigoAccent,
+                child: Text(
+                  '${book['id']}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+              title: Text(
+                book['name'] ?? '',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Text(
+                '${book['testament'] ?? ''} Testament • ${book['chapters_count'] ?? 0} Chapters',
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+              onTap: () => _openBibleReading(book),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPasDTab() {
+    return const Center(
+      child: Text('Pas D Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+    );
+  }
+
+  Widget _buildCommunityTab() {
+    return const Center(
+      child: Text('Community Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+    );
+  }
+
+  Widget _buildProfileTab() {
+    return const Center(
+      child: Text('Profile Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      _buildHomeTab(),
+      _buildBibleTab(),
+      _buildPasDTab(),
+      _buildCommunityTab(),
+      _buildProfileTab(),
+    ];
+
     return Scaffold(
       backgroundColor: const Color(0xFF12121E),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E2C),
-        elevation: 0,
         title: Text(
-          '${widget.book['name']} $_selectedChapter',
+          _currentIndex == 1 ? 'Bible' : 'The Holy Nation',
           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        actions: [
-          PopupMenuButton<int>(
-            icon: const Icon(Icons.list, color: Colors.white),
-            tooltip: 'அதிகாரங்கள்',
-            onSelected: (chapter) {
-              setState(() {
-                _selectedChapter = chapter;
-              });
-              _loadVerses();
-            },
-            itemBuilder: (context) {
-              return List.generate(_totalChapters, (index) {
-                final ch = index + 1;
-                return PopupMenuItem(
-                  value: ch,
-                  child: Text('அதிகாரம் $ch'),
-                );
-              });
-            },
-          ),
+        backgroundColor: const Color(0xFF1E1E2C),
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: screens[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color(0xFF1E1E2C),
+        selectedItemColor: Colors.indigoAccent,
+        unselectedItemColor: Colors.white54,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'Bible'),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: 'Pas D'),
+          BottomNavigationBarItem(icon: Icon(Icons.forum), label: 'Community'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.indigoAccent))
-          : _verses.isEmpty
-              ? const Center(
-                  child: Text(
-                    'இந்த அதிகாரத்தில் வசனங்கள் இல்லை.',
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  itemCount: _verses.length,
-                  itemBuilder: (context, index) {
-                    final item = _verses[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.indigoAccent.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '${item['verse']}',
-                              style: const TextStyle(
-                                color: Colors.indigoAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              item['text'] ?? '',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                height: 1.6,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
     );
   }
 }
