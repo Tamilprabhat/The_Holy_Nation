@@ -22,3 +22,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/holy_nation.db
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/holy_nation.db
