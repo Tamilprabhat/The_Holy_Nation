@@ -26,7 +26,6 @@ class DatabaseHelper {
         await Directory(dirname(path)).create(recursive: true);
       } catch (_) {}
 
-      // உண்மையான டேட்டாபேஸை ஆப்பிற்குள் நகலெடுக்கிறது
       ByteData data = await rootBundle.load('assets/$filePath');
       List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
       await File(path).writeAsBytes(bytes, flush: true);
