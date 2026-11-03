@@ -34,7 +34,7 @@ class DatabaseHelper {
     return await openDatabase(path);
   }
 
-  Future<List>> getAllBooks() async {
+  Future<List> getAllBooks() async {
     final db = await instance.database;
     return await db.query('books', orderBy: 'id ASC');
   }
@@ -50,7 +50,7 @@ class DatabaseHelper {
     return 0;
   }
 
-  Future<List>> getVerses(int bookId, int chapter) async {
+  Future<List> getVerses(int bookId, int chapter) async {
     final db = await instance.database;
     return await db.query('verses',
         where: 'book_id = ? AND chapter = ?',
