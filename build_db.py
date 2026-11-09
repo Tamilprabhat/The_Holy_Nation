@@ -3,37 +3,40 @@ import sys
 import json
 import sqlite3
 import subprocess
-import urllib.request
 
 def build_database():
     source_dir = "bible_source"
     if not os.path.exists(source_dir):
         print("Cloning complete Bible dataset...")
-        try:
-            subprocess.run(
-                ["git", "clone", "--depth", "1", "https://github.com/godlytalias/Bible-Database.git", source_dir],
-                check=True
-            )
-        except Exception as e:
-            print(f"Git clone error: {e}. Downloading directly...")
-            os.makedirs(os.path.join(source_dir, "Tamil"), exist_ok=True)
-            os.makedirs(os.path.join(source_dir, "English (KJV)"), exist_ok=True)
-            urllib.request.urlretrieve(
-                "https://raw.githubusercontent.com/godlytalias/Bible-Database/master/Tamil/bible.json",
-                os.path.join(source_dir, "Tamil", "bible.json")
-            )
-            urllib.request.urlretrieve(
-                "https://raw.githubusercontent.com/godlytalias/Bible-Database/master/English%20(KJV)/bible.json",
-                os.path.join(source_dir, "English (KJV)", "bible.json")
-            )
+        subprocess.run(
+            ["git", "clone", "--depth", "1", "https://github.com/godlytalias/Bible-Database.git", source_dir],
+            check=True
+        )
 
-    tamil_path = os.path.join(source_dir, "Tamil", "bible.json")
-    english_path = os.path.join(source_dir, "English (KJV)", "bible.json")
+    # 1. பைல்களைத் தானாகவே தேடிக் கண்டுபிடிக்கும் முறை (Auto-Detect)
+    tamil_path = None
+    english_path = None
+
+    for root, dirs, files in os.walk(source_dir):
+        for f in files:
+            if f.endswith(".json"):
+                full_path = os.path.join(root, f)
+                lower_path = full_path.lower()
+                if "tamil" in lower_path and tamil_path is None:
+                    tamil_path = full_path
+                elif ("kjv" in lower_path or "english" in lower_path) and english_path is None:
+                    english_path = full_path
+
+    print(f"Detected Tamil: {tamil_path}")
+    print(f"Detected English: {english_path}")
 
     with open(tamil_path, "r", encoding="utf-8") as f:
         ta_data = json.load(f)
-    with open(english_path, "r", encoding="utf-8") as f:
-        en_data = json.load(f)
+
+    en_data = {}
+    if english_path and os.path.exists(english_path):
+        with open(english_path, "r", encoding="utf-8") as f:
+            en_data = json.load(f)
 
     ta_books = ta_data.get("books", ta_data) if isinstance(ta_data, dict) else ta_data
     en_books = en_data.get("books", en_data) if isinstance(en_data, dict) else en_data
@@ -76,10 +79,10 @@ def build_database():
     for b_idx in range(total_books):
         book_id = b_idx + 1
         b_ta = ta_books[b_idx]
-        b_en = en_books[b_idx] if b_idx < len(en_books) else {}
+        b_en = en_books[b_idx] if (isinstance(en_books, list) and b_idx < len(en_books)) else {}
 
         name_ta = str(b_ta.get("name", "")).strip() or f"புத்தகம் {book_id}"
-        name_en = str(b_en.get("name", "")).strip() or f"Book {book_id}"
+        name_en = str(b_en.get("name", "")).strip() if isinstance(b_en, dict) else f"Book {book_id}"
         testament = "Old Testament" if book_id <= 39 else "New Testament"
 
         ta_chaps = b_ta.get("chapters", []) if isinstance(b_ta, dict) else []
@@ -101,17 +104,10 @@ def build_database():
                 verse_num = v_idx + 1
 
                 ta_item = ta_v_list[v_idx] if v_idx < len(ta_v_list) else ""
-                if isinstance(ta_item, dict):
-                    verse_num = int(ta_item.get("verse", verse_num))
-                    ta_text = ta_item.get("text", "")
-                else:
-                    ta_text = str(ta_item)
+                ta_text = ta_item.get("text", "") if isinstance(ta_item, dict) else str(ta_item)
 
                 en_item = en_v_list[v_idx] if v_idx < len(en_v_list) else ""
-                if isinstance(en_item, dict):
-                    en_text = en_item.get("text", "")
-                else:
-                    en_text = str(en_item)
+                en_text = en_item.get("text", "") if isinstance(en_item, dict) else str(en_item)
 
                 verses_rows.append((book_id, chap_num, verse_num, str(ta_text).strip(), str(en_text).strip()))
 
@@ -119,7 +115,7 @@ def build_database():
     cur.executemany("INSERT INTO verses (book_id, chapter, verse, text_ta, text_en) VALUES (?, ?, ?, ?, ?)", verses_rows)
 
     conn.commit()
-    print(f"Done! Inserted {len(books_rows)} books and {len(verses_rows)} verses.")
+    print(f"Success! Inserted {len(books_rows)} books and {len(verses_rows)} verses.")
     conn.close()
 
 if __name__ == "__main__":
