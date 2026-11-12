@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/local/database_helper.dart';
 import 'bible_reading_screen.dart';
 import 'poster_creator_screen.dart';
+import 'topic_chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,17 +14,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // 0 = இன்றைய வாக்குத்தத்தம், 1 = இன்றைய விசுவாச அறிக்கை
   int _selectedDevotionTab = 0;
 
   dynamic _promiseVerse;
   dynamic _confessionVerse;
   List _posters = [];
+  List _trendingPosts = [];
   int _totalChaptersRead = 0;
   dynamic _lastReadBook;
   bool _isLoading = true;
 
-  // 1. வாக்குத்தத்த வசனங்கள் (தேவன் கொடுத்த வாக்குத்தத்தங்கள் மட்டும்)
   final List _promiseList = [
     {'book_id': 23, 'chapter': 41, 'verse': 10}, // ஏசாயா 41:10
     {'book_id': 6, 'chapter': 1, 'verse': 9},   // யோசுவா 1:9
@@ -33,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
     {'book_id': 19, 'chapter': 91, 'verse': 11}, // சங்கீதம் 91:11
   ];
 
-  // 2. விசுவாச அறிக்கைகள் (பரிசுத்தவான்கள் விசுவாசத்தினால் சொன்ன வார்த்தைகள்)
   final List _confessionList = [
     {'book_id': 50, 'chapter': 4, 'verse': 13},  // என்னைப் பெலப்படுத்துகிற கிறிஸ்துவினாலே...
     {'book_id': 19, 'chapter': 138, 'verse': 8}, // கர்த்தர் எனக்காக யாவையும் செய்து முடிப்பார்
@@ -44,44 +44,11 @@ class _HomeScreenState extends State<HomeScreen> {
     {'book_id': 19, 'chapter': 118, 'verse': 6}, // கர்த்தர் என் பட்சத்தில் இருக்கிறார், நான் பயப்படேன்
   ];
 
-  // 3. ட்ரெண்டிங் டாபிக் & அதிக Praise God (Likes) பெற்ற கருத்துக்கள் (வரிசைப்படி)
-  final List _trendingTopics = [
-    {
-      'topic': '#அன்பு (Love)',
-      'author': 'யோவான் (John)',
-      'likes': 142,
-      'isLiked': false,
-      'content':
-          'அன்பில்லாதவன் தேவனை அறியான்; தேவன் அன்பாகவே இருக்கிறார். ஒருவரிலொருவர் அன்புகூருவதே கிறிஸ்துவின் பிரமாணம்.',
-      'verseRef': '1 யோவான் 4:8',
-    },
-    {
-      'topic': '#விசுவாசம் (Faith)',
-      'author': 'பேதுரு (Peter)',
-      'likes': 118,
-      'isLiked': false,
-      'content':
-          'சூழ்நிலைகள் எதிராக இருந்தாலும், வாக்குத்தத்தம் பண்ணினவர் உண்மையுள்ளவர் என்று விசுவாசிக்கும்போது அற்புதங்கள் நடக்கும்.',
-      'verseRef': 'எபிரெயர் 11:1',
-    },
-    {
-      'topic': '#ஜெபம் (Prayer)',
-      'author': 'அன்னாள் (Hannah)',
-      'likes': 96,
-      'isLiked': false,
-      'content':
-          'கண்ணீரோடு ஏறெடுக்கப்படும் எந்த ஜெபத்தையும் தேவன் மறப்பதில்லை; ஏற்ற வேளையில் நிச்சயம் பதிலளிப்பார்.',
-      'verseRef': '1 சாமுவேல் 1:27',
-    },
-    {
-      'topic': '#சமாதானம் (Peace)',
-      'author': 'பவுல் (Paul)',
-      'likes': 84,
-      'isLiked': false,
-      'content':
-          'எல்லாப் புத்திக்கும் மேலான தேவசமாதானம் உங்கள் இருதயங்களையும் சிந்தைகளையும் கிறிஸ்து இயேசுவுக்குள் காத்துக்கொள்ளும்.',
-      'verseRef': 'பிலிப்பியர் 4:7',
-    },
+  final List _topicKeys = [
+    '#அன்பு (Love)',
+    '#விசுவாசம் (Faith)',
+    '#ஜெபம் (Prayer)',
+    '#சமாதானம் (Peace)',
   ];
 
   @override
@@ -111,6 +78,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final postersData =
         await DatabaseHelper.instance.getPostersByCategory(activeCategory);
 
+    // ஒவ்வொரு ட்ரெண்டிங் டாபிக்கிலும் அதிக Likes பெற்ற முதன்மைக் கருத்தை எடுத்தல்
+    final List topTopicCards = [];
+    for (final key in _topicKeys) {
+      final msgs = await DatabaseHelper.instance.getTopicMessages(key);
+      if (msgs.isNotEmpty) {
+        topTopicCards.add(msgs.first);
+      }
+    }
+    topTopicCards.sort((a, b) =>
+        (b['likes_count'] as int).compareTo(a['likes_count'] as int));
+
     if (mounted) {
       setState(() {
         _promiseVerse = pVerse;
@@ -118,6 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _totalChaptersRead = summary['total_read'] ?? 0;
         _lastReadBook = summary['last_read'];
         _posters = postersData;
+        _trendingPosts = topTopicCards;
         _isLoading = false;
       });
     }
@@ -169,7 +148,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // பயனரின் வாசிப்பு தரவரிசை (Leaderboard Rank) கணக்கீடு
   Map _calculateRankInfo(int readCount) {
     final List leaderboard = [
       {'name': 'பவுல் (Paul)', 'chapters': 120},
@@ -218,14 +196,15 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. மேல் பகுதியில் 2 Pill பொத்தான்கள் (இன்றைய வாக்குத்தத்தம் | இன்றைய விசுவாச அறிக்கை)
+            // 1. மையப்படுத்தப்பட்ட 2 Pill பொத்தான்கள்
             Row(
               children: [
                 Expanded(
                   child: GestureDetector(
                     onTap: () => _switchDevotionTab(0),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isPromise
@@ -240,10 +219,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: Text(
                         'இன்றைய வாக்குத்தத்தம்',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           color: isPromise ? Colors.white : Colors.white60,
                           fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                          fontSize: 12.5,
                         ),
                       ),
                     ),
@@ -254,7 +234,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: GestureDetector(
                     onTap: () => _switchDevotionTab(1),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: !isPromise
@@ -269,10 +250,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: Text(
                         'இன்றைய விசுவாச அறிக்கை',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           color: !isPromise ? Colors.white : Colors.white60,
                           fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                          fontSize: 12.5,
                         ),
                       ),
                     ),
@@ -283,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 14),
 
-            // 2. சிம்பிளான பிளைன் பேக்ரவுண்டில் நேர்த்தியான வசன அட்டை (No clutter)
+            // 2. சிம்பிளான பிளைன் பேக்ரவுண்டில் நேர்த்தியான வசன அட்டை
             if (activeVerse != null)
               Container(
                 width: double.infinity,
@@ -294,36 +276,35 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: Border.all(color: Colors.white10),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          isPromise
-                              ? 'தேவனின் வாக்குத்தத்தம்'
-                              : 'விசுவாச அறிக்கை',
-                          style: TextStyle(
-                            color: isPromise
-                                ? Colors.amberAccent
-                                : Colors.tealAccent,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '${activeVerse['name_ta']} (${activeVerse['name_en']}) ${activeVerse['chapter']}:${activeVerse['verse']}',
-                          style: const TextStyle(
-                            color: Colors.white60,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      isPromise
+                          ? 'தேவனின் வாக்குத்தத்தம்'
+                          : 'விசுவாச அறிக்கை',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isPromise
+                            ? Colors.amberAccent
+                            : Colors.tealAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${activeVerse['name_ta']} (${activeVerse['name_en']}) ${activeVerse['chapter']}:${activeVerse['verse']}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       activeVerse['text_ta'] ?? '',
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -334,6 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 8),
                     Text(
                       activeVerse['text_en'] ?? '',
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white60,
                         fontSize: 13,
@@ -341,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
@@ -349,6 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
                               side: const BorderSide(color: Colors.white24),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -372,6 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.indigoAccent,
                               foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -396,18 +380,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 18),
 
-            // 3. பயனர்கள் உருவாக்கிய போஸ்டர்கள் (அதிக Praise God / Likes வரிசையில்)
+            // 3. பயனர்கள் உருவாக்கிய போஸ்டர்கள் (Gallery Photo + Gradient Support)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  isPromise
-                      ? 'வாக்குத்தத்த போஸ்டர்கள் (Top Liked)'
-                      : 'விசுவாச அறிக்கை போஸ்டர்கள் (Top Liked)',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    isPromise
+                        ? 'வாக்குத்தத்த போஸ்டர்கள் (Top Liked)'
+                        : 'விசுவாச அறிக்கை போஸ்டர்கள் (Top Liked)',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const Text(
@@ -418,33 +404,46 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 10),
             SizedBox(
-              height: 175,
+              height: 190,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _posters.length,
                 itemBuilder: (context, index) {
                   final poster = _posters[index];
                   final bool liked = (poster['is_liked'] ?? 0) == 1;
-                  return Container(
-                    width: 250,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Color(poster['bg_color'] ?? 0xFF1E2A4A),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  final String? imgPath = poster['image_path'];
+                  final bool hasImage =
+                      imgPath != null && imgPath.isNotEmpty && File(imgPath).existsSync();
+
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      width: 260,
+                      margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        color: Color(poster['bg_color'] ?? 0xFF1E2A4A),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white12),
+                        image: hasImage
+                            ? DecorationImage(
+                                image: FileImage(File(imgPath)),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        color: hasImage
+                            ? Colors.black.withValues(alpha: 0.48)
+                            : Colors.transparent,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
+                                  horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: Colors.black26,
+                                color: Colors.black38,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -456,78 +455,82 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: Text(
-                            poster['verse_text'] ?? '',
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              poster['author_name'] ?? '',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: Text(
+                                poster['verse_text'] ?? '',
+                                maxLines: 4,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
                               ),
                             ),
-                            InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: () async {
-                                await DatabaseHelper.instance.togglePosterLike(
-                                  poster['id'],
-                                  poster['likes_count'] ?? 0,
-                                  poster['is_liked'] ?? 0,
-                                );
-                                _switchDevotionTab(_selectedDevotionTab);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: liked
-                                      ? Colors.amber.withValues(alpha: 0.25)
-                                      : Colors.black26,
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    poster['author_name'] ?? '',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                                InkWell(
                                   borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      liked
-                                          ? Icons.favorite
-                                          : Icons.favorite_border,
-                                      size: 14,
+                                  onTap: () async {
+                                    await DatabaseHelper.instance
+                                        .togglePosterLike(
+                                      poster['id'],
+                                      poster['likes_count'] ?? 0,
+                                      poster['is_liked'] ?? 0,
+                                    );
+                                    _switchDevotionTab(_selectedDevotionTab);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
                                       color: liked
-                                          ? Colors.amberAccent
-                                          : Colors.white70,
+                                          ? Colors.amber.withValues(alpha: 0.25)
+                                          : Colors.black38,
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Praise God (${poster['likes_count']})',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          liked
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
+                                          size: 14,
+                                          color: liked
+                                              ? Colors.amberAccent
+                                              : Colors.white70,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Praise God (${poster['likes_count']})',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   );
                 },
@@ -536,7 +539,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 22),
 
-            // 4. தொடர்ந்து வாசிக்க (Continue Reading) & வாசிப்பு தரவரிசை Notification Bar
+            // 4. தொடர்ந்து வாசிக்க & தரவரிசை Notification Bar
             const Text(
               'தொடர்ந்து வாசிக்க (Continue Reading)',
               style: TextStyle(
@@ -587,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'இதுவரை வாசித்த அதிகாரங்கள்: $_totalChaptersRead / 1189',
+                              'முழுமையாக வாசித்த அதிகாரங்கள்: $_totalChaptersRead / 1189',
                               style: const TextStyle(
                                 color: Colors.white60,
                                 fontSize: 12,
@@ -645,7 +648,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // வாசிப்பு தரவரிசை Notification Bar
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 9),
@@ -682,153 +684,162 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 22),
 
-            // 5. ட்ரெண்டிங் டாபிக் (Trending Topics — அதிக Likes பெற்ற வரிசையில் Horizontal Scroll)
+            // 5. ட்ரெண்டிங் டாபிக் (கிளிக் செய்தால் Community Chat பக்கத்திற்குச் செல்லும்)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
-                Text(
-                  'ட்ரெண்டிங் டாபிக் (Trending Topics)',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'ட்ரெண்டிங் டாபிக் (Trending Topics)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 Text(
-                  'Top Praise God →',
-                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                  'Tap to Chat →',
+                  style: TextStyle(color: Colors.indigoAccent, fontSize: 12),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             SizedBox(
-              height: 185,
+              height: 190,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _trendingTopics.length,
+                itemCount: _trendingPosts.length,
                 itemBuilder: (context, index) {
-                  // அதிக Likes பெற்ற அடிப்படையில் வரிசைப்படுத்தல்
-                  final sortedTopics = List.from(_trendingTopics)
-                    ..sort((a, b) =>
-                        (b['likes'] as int).compareTo(a['likes'] as int));
-                  final item = sortedTopics[index];
-                  final bool isLiked = item['isLiked'] == true;
+                  final item = _trendingPosts[index];
+                  final bool isLiked = (item['is_liked'] ?? 0) == 1;
+                  final String topicKey = item['topic_key'] ?? '';
 
-                  return Container(
-                    width: 265,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1B1D28),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 3),
-                              decoration: BoxDecoration(
-                                color:
-                                    Colors.indigoAccent.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '#${index + 1} ${item['topic']}',
-                                style: const TextStyle(
-                                  color: Colors.indigoAccent,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              item['verseRef'],
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
+                  return GestureDetector(
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TopicChatScreen(topicKey: topicKey),
                         ),
-                        const SizedBox(height: 10),
-                        Expanded(
-                          child: Text(
-                            item['content'],
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              height: 1.45,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              item['author'],
-                              style: const TextStyle(
-                                color: Colors.white60,
-                                fontSize: 12,
-                              ),
-                            ),
-                            InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: () {
-                                setState(() {
-                                  if (isLiked) {
-                                    item['isLiked'] = false;
-                                    item['likes'] = (item['likes'] as int) - 1;
-                                  } else {
-                                    item['isLiked'] = true;
-                                    item['likes'] = (item['likes'] as int) + 1;
-                                  }
-                                });
-                              },
-                              child: Container(
+                      );
+                      _loadHomeData();
+                    },
+                    child: Container(
+                      width: 270,
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1B1D28),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
+                                    horizontal: 10, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: isLiked
-                                      ? Colors.indigoAccent
-                                          .withValues(alpha: 0.3)
-                                      : Colors.white10,
+                                  color: Colors.indigoAccent
+                                      .withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isLiked
-                                          ? Icons.thumb_up
-                                          : Icons.thumb_up_outlined,
-                                      size: 13,
-                                      color: isLiked
-                                          ? Colors.amberAccent
-                                          : Colors.white70,
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      'Praise God (${item['likes']})',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
+                                child: Text(
+                                  '#${index + 1} $topicKey',
+                                  style: const TextStyle(
+                                    color: Colors.indigoAccent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
+                              const Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 15,
+                                color: Colors.white54,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: Text(
+                              item['message_text'] ?? '',
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                height: 1.45,
+                              ),
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item['author_name'] ?? '',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white60,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () async {
+                                  await DatabaseHelper.instance
+                                      .toggleTopicMessageLike(
+                                    item['id'],
+                                    item['likes_count'] ?? 0,
+                                    item['is_liked'] ?? 0,
+                                  );
+                                  _loadHomeData();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: isLiked
+                                        ? Colors.indigoAccent
+                                            .withValues(alpha: 0.3)
+                                        : Colors.white10,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        isLiked
+                                            ? Icons.thumb_up
+                                            : Icons.thumb_up_outlined,
+                                        size: 13,
+                                        color: isLiked
+                                            ? Colors.amberAccent
+                                            : Colors.white70,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        'Praise God (${item['likes_count']})',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
