@@ -68,15 +68,34 @@ class DatabaseHelper {
         author_name TEXT NOT NULL,
         bg_color INTEGER NOT NULL,
         image_path TEXT,
+        font_size REAL NOT NULL DEFAULT 15.0,
+        text_color INTEGER NOT NULL DEFAULT 4294967295,
+        text_align_pos TEXT NOT NULL DEFAULT 'center',
+        hide_text INTEGER NOT NULL DEFAULT 0,
         likes_count INTEGER NOT NULL DEFAULT 1,
         is_liked INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )
     ''');
 
-    // பழைய டேபிளில் image_path இல்லையென்றால் பாதுகாப்பாகச் சேர்த்தல்
     try {
       await db.execute('ALTER TABLE user_posters ADD COLUMN image_path TEXT');
+    } catch (_) {}
+    try {
+      await db.execute(
+          'ALTER TABLE user_posters ADD COLUMN font_size REAL NOT NULL DEFAULT 15.0');
+    } catch (_) {}
+    try {
+      await db.execute(
+          'ALTER TABLE user_posters ADD COLUMN text_color INTEGER NOT NULL DEFAULT 4294967295');
+    } catch (_) {}
+    try {
+      await db.execute(
+          "ALTER TABLE user_posters ADD COLUMN text_align_pos TEXT NOT NULL DEFAULT 'center'");
+    } catch (_) {}
+    try {
+      await db.execute(
+          'ALTER TABLE user_posters ADD COLUMN hide_text INTEGER NOT NULL DEFAULT 0');
     } catch (_) {}
 
     await db.execute('''
@@ -89,6 +108,14 @@ class DatabaseHelper {
         likes_count INTEGER NOT NULL DEFAULT 1,
         is_liked INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    // இரட்டைப் பதிவுகள் இருந்தால் சுத்தம் செய்தல்
+    await db.execute('''
+      DELETE FROM topic_messages 
+      WHERE id NOT IN (
+        SELECT MIN(id) FROM topic_messages GROUP BY topic_key, author_name, message_text
       )
     ''');
 
@@ -105,6 +132,10 @@ class DatabaseHelper {
         'author_name': 'ஆபிரகாம் (Abraham)',
         'bg_color': 0xFF1E2A4A,
         'image_path': null,
+        'font_size': 14.0,
+        'text_color': 0xFFFFFFFF,
+        'text_align_pos': 'center',
+        'hide_text': 0,
         'likes_count': 48,
         'is_liked': 0,
         'created_at': now,
@@ -117,6 +148,10 @@ class DatabaseHelper {
         'author_name': 'எஸ்தர் (Esther)',
         'bg_color': 0xFF2B2144,
         'image_path': null,
+        'font_size': 14.0,
+        'text_color': 0xFFFFFFFF,
+        'text_align_pos': 'center',
+        'hide_text': 0,
         'likes_count': 35,
         'is_liked': 0,
         'created_at': now,
@@ -129,6 +164,10 @@ class DatabaseHelper {
         'author_name': 'தாவீது (David)',
         'bg_color': 0xFF1B363D,
         'image_path': null,
+        'font_size': 14.0,
+        'text_color': 0xFFFFFFFF,
+        'text_align_pos': 'center',
+        'hide_text': 0,
         'likes_count': 62,
         'is_liked': 0,
         'created_at': now,
@@ -141,6 +180,10 @@ class DatabaseHelper {
         'author_name': 'ரூத் (Ruth)',
         'bg_color': 0xFF3A243B,
         'image_path': null,
+        'font_size': 14.0,
+        'text_color': 0xFFFFFFFF,
+        'text_align_pos': 'center',
+        'hide_text': 0,
         'likes_count': 41,
         'is_liked': 0,
         'created_at': now,
@@ -299,22 +342,30 @@ class DatabaseHelper {
     );
   }
 
-  Future<void> addUserPoster({
+  Future<int> addUserPoster({
     required String category,
     required String refTitle,
     required String verseText,
     required String authorName,
     required int bgColor,
     String? imagePath,
+    double fontSize = 15.0,
+    int textColor = 0xFFFFFFFF,
+    String textAlignPos = 'center',
+    bool hideText = false,
   }) async {
     final db = await instance.database;
-    await db.insert('user_posters', {
+    return await db.insert('user_posters', {
       'category': category,
       'ref_title': refTitle,
       'verse_text': verseText,
       'author_name': authorName,
       'bg_color': bgColor,
       'image_path': imagePath,
+      'font_size': fontSize,
+      'text_color': textColor,
+      'text_align_pos': textAlignPos,
+      'hide_text': hideText ? 1 : 0,
       'likes_count': 1,
       'is_liked': 1,
       'created_at': DateTime.now().toIso8601String(),
@@ -344,14 +395,14 @@ class DatabaseHelper {
     );
   }
 
-  Future<void> addTopicMessage({
+  Future<int> addTopicMessage({
     required String topicKey,
     required String authorName,
     required String messageText,
     String? verseRef,
   }) async {
     final db = await instance.database;
-    await db.insert('topic_messages', {
+    return await db.insert('topic_messages', {
       'topic_key': topicKey,
       'author_name': authorName,
       'message_text': messageText,
@@ -389,7 +440,7 @@ class DatabaseHelper {
       WHERE v.text_ta LIKE ? OR v.text_en LIKE ?
       ORDER BY v.book_id ASC, v.chapter ASC, v.verse ASC
       LIMIT 100
-    ''', ['%$clean%', '%$clean%']);
+    ''', ['%$clean\%', '\%$clean%']);
   }
 
   Future<Set> getBookmarkedVerseNumbers(int bookId, int chapter) async {
