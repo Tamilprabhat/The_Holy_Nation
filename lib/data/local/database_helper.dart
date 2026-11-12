@@ -67,13 +67,31 @@ class DatabaseHelper {
         verse_text TEXT NOT NULL,
         author_name TEXT NOT NULL,
         bg_color INTEGER NOT NULL,
+        image_path TEXT,
         likes_count INTEGER NOT NULL DEFAULT 1,
         is_liked INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )
     ''');
 
-    // ஆரம்ப மாதிரி போஸ்டர்கள் (காலியாக இருந்தால் மட்டும் சேர்க்கும்)
+    // பழைய டேபிளில் image_path இல்லையென்றால் பாதுகாப்பாகச் சேர்த்தல்
+    try {
+      await db.execute('ALTER TABLE user_posters ADD COLUMN image_path TEXT');
+    } catch (_) {}
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS topic_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        topic_key TEXT NOT NULL,
+        author_name TEXT NOT NULL,
+        message_text TEXT NOT NULL,
+        verse_ref TEXT,
+        likes_count INTEGER NOT NULL DEFAULT 1,
+        is_liked INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
     final countRes =
         await db.rawQuery('SELECT COUNT(*) as cnt FROM user_posters');
     final count = (countRes.first['cnt'] as int?) ?? 0;
@@ -86,6 +104,7 @@ class DatabaseHelper {
             'நீ பயப்படாதே, நான் உன்னுடனே இருக்கிறேன்; திகையாதே, நான் உன் தேவன்; நான் உன்னைப் பலப்படுத்தி உனக்குச் சகாயம்பண்ணுவேன்.',
         'author_name': 'ஆபிரகாம் (Abraham)',
         'bg_color': 0xFF1E2A4A,
+        'image_path': null,
         'likes_count': 48,
         'is_liked': 0,
         'created_at': now,
@@ -97,6 +116,7 @@ class DatabaseHelper {
             'பலங்கொண்டு திடமனதாயிரு; திகையாதே, கலங்காதே, நீ போகும் இடமெல்லாம் உன் தேவனாகிய கர்த்தர் உன்னோடே இருக்கிறார்.',
         'author_name': 'எஸ்தர் (Esther)',
         'bg_color': 0xFF2B2144,
+        'image_path': null,
         'likes_count': 35,
         'is_liked': 0,
         'created_at': now,
@@ -108,6 +128,7 @@ class DatabaseHelper {
             'என்னைப் பெலப்படுத்துகிற கிறிஸ்துவினாலே எல்லாவற்றையுஞ்செய்ய எனக்குப் பெலனுண்டு.',
         'author_name': 'தாவீது (David)',
         'bg_color': 0xFF1B363D,
+        'image_path': null,
         'likes_count': 62,
         'is_liked': 0,
         'created_at': now,
@@ -119,7 +140,65 @@ class DatabaseHelper {
             'கர்த்தர் எனக்காக யாவையும் செய்து முடிப்பார்; கர்த்தாவே, உமது கிருபை என்றுமுள்ளது.',
         'author_name': 'ரூத் (Ruth)',
         'bg_color': 0xFF3A243B,
+        'image_path': null,
         'likes_count': 41,
+        'is_liked': 0,
+        'created_at': now,
+      });
+    }
+
+    final msgCountRes =
+        await db.rawQuery('SELECT COUNT(*) as cnt FROM topic_messages');
+    final msgCount = (msgCountRes.first['cnt'] as int?) ?? 0;
+    if (msgCount == 0) {
+      final now = DateTime.now().toIso8601String();
+      await db.insert('topic_messages', {
+        'topic_key': '#அன்பு (Love)',
+        'author_name': 'யோவான் (John)',
+        'message_text':
+            'அன்பில்லாதவன் தேவனை அறியான்; தேவன் அன்பாகவே இருக்கிறார். ஒருவரிலொருவர் அன்புகூருவதே கிறிஸ்துவின் பிரமாணம்.',
+        'verse_ref': '1 யோவான் 4:8',
+        'likes_count': 142,
+        'is_liked': 0,
+        'created_at': now,
+      });
+      await db.insert('topic_messages', {
+        'topic_key': '#அன்பு (Love)',
+        'author_name': 'மரியாள் (Mary)',
+        'message_text':
+            'மன்னிக்கும் இருதயம் உள்ள இடத்தில் தேவனுடைய அன்பு பரிபூரணமாக வெளிப்படும்.',
+        'verse_ref': 'கொலோசெயர் 3:14',
+        'likes_count': 54,
+        'is_liked': 0,
+        'created_at': now,
+      });
+      await db.insert('topic_messages', {
+        'topic_key': '#விசுவாசம் (Faith)',
+        'author_name': 'பேதுரு (Peter)',
+        'message_text':
+            'சூழ்நிலைகள் எதிராக இருந்தாலும், வாக்குத்தத்தம் பண்ணினவர் உண்மையுள்ளவர் என்று விசுவாசிக்கும்போது அற்புதங்கள் நடக்கும்.',
+        'verse_ref': 'எபிரெயர் 11:1',
+        'likes_count': 118,
+        'is_liked': 0,
+        'created_at': now,
+      });
+      await db.insert('topic_messages', {
+        'topic_key': '#ஜெபம் (Prayer)',
+        'author_name': 'அன்னாள் (Hannah)',
+        'message_text':
+            'கண்ணீரோடு ஏறெடுக்கப்படும் எந்த ஜெபத்தையும் தேவன் மறப்பதில்லை; ஏற்ற வேளையில் நிச்சயம் பதிலளிப்பார்.',
+        'verse_ref': '1 சாமுவேல் 1:27',
+        'likes_count': 96,
+        'is_liked': 0,
+        'created_at': now,
+      });
+      await db.insert('topic_messages', {
+        'topic_key': '#சமாதானம் (Peace)',
+        'author_name': 'பவுல் (Paul)',
+        'message_text':
+            'எல்லாப் புத்திக்கும் மேலான தேவசமாதானம் உங்கள் இருதயங்களையும் சிந்தைகளையும் கிறிஸ்து இயேசுவுக்குள் காத்துக்கொள்ளும்.',
+        'verse_ref': 'பிலிப்பியர் 4:7',
+        'likes_count': 84,
         'is_liked': 0,
         'created_at': now,
       });
@@ -153,7 +232,6 @@ class DatabaseHelper {
     );
   }
 
-  // குறிப்பிட்ட ஒரு வசனத்தை எடுத்தல்
   Future<dynamic> getSingleVerse(int bookId, int chapter, int verse) async {
     final db = await instance.database;
     final rows = await db.rawQuery('''
@@ -167,7 +245,16 @@ class DatabaseHelper {
     return rows.isNotEmpty ? rows.first : null;
   }
 
-  // வாசித்த அதிகாரத்தைப் பதிவு செய்தல்
+  Future<bool> isChapterAlreadyRead(int bookId, int chapter) async {
+    final db = await instance.database;
+    final rows = await db.query(
+      'reading_progress',
+      where: 'book_id = ? AND chapter = ?',
+      whereArgs: [bookId, chapter],
+    );
+    return rows.isNotEmpty;
+  }
+
   Future<void> recordChapterRead(int bookId, int chapter) async {
     final db = await instance.database;
     await db.insert(
@@ -181,7 +268,6 @@ class DatabaseHelper {
     );
   }
 
-  // வாசிப்பு முன்னேற்றம் மற்றும் கடைசியாக வாசித்த அதிகாரம்
   Future<dynamic> getReadingSummary() async {
     final db = await instance.database;
     final totalRes =
@@ -203,7 +289,6 @@ class DatabaseHelper {
     };
   }
 
-  // போஸ்டர்களை Praise God (Likes) அடிப்படையில் வரிசைப்படுத்தி எடுத்தல்
   Future<List> getPostersByCategory(String category) async {
     final db = await instance.database;
     return await db.query(
@@ -214,13 +299,13 @@ class DatabaseHelper {
     );
   }
 
-  // புதிய போஸ்டர் சேர்த்தல்
   Future<void> addUserPoster({
     required String category,
     required String refTitle,
     required String verseText,
     required String authorName,
     required int bgColor,
+    String? imagePath,
   }) async {
     final db = await instance.database;
     await db.insert('user_posters', {
@@ -229,13 +314,13 @@ class DatabaseHelper {
       'verse_text': verseText,
       'author_name': authorName,
       'bg_color': bgColor,
+      'image_path': imagePath,
       'likes_count': 1,
       'is_liked': 1,
       'created_at': DateTime.now().toIso8601String(),
     });
   }
 
-  // போஸ்டருக்கு Praise God (Like) போடுதல் / நீக்குதல்
   Future<void> togglePosterLike(int id, int currentLikes, int isLiked) async {
     final db = await instance.database;
     final bool nextLiked = isLiked == 0;
@@ -243,6 +328,48 @@ class DatabaseHelper {
         nextLiked ? currentLikes + 1 : (currentLikes > 0 ? currentLikes - 1 : 0);
     await db.update(
       'user_posters',
+      {'likes_count': nextCount, 'is_liked': nextLiked ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List> getTopicMessages(String topicKey) async {
+    final db = await instance.database;
+    return await db.query(
+      'topic_messages',
+      where: 'topic_key = ?',
+      whereArgs: [topicKey],
+      orderBy: 'likes_count DESC, id DESC',
+    );
+  }
+
+  Future<void> addTopicMessage({
+    required String topicKey,
+    required String authorName,
+    required String messageText,
+    String? verseRef,
+  }) async {
+    final db = await instance.database;
+    await db.insert('topic_messages', {
+      'topic_key': topicKey,
+      'author_name': authorName,
+      'message_text': messageText,
+      'verse_ref': verseRef ?? '',
+      'likes_count': 1,
+      'is_liked': 1,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> toggleTopicMessageLike(
+      int id, int currentLikes, int isLiked) async {
+    final db = await instance.database;
+    final bool nextLiked = isLiked == 0;
+    final int nextCount =
+        nextLiked ? currentLikes + 1 : (currentLikes > 0 ? currentLikes - 1 : 0);
+    await db.update(
+      'topic_messages',
       {'likes_count': nextCount, 'is_liked': nextLiked ? 1 : 0},
       where: 'id = ?',
       whereArgs: [id],
