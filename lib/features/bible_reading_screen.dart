@@ -47,6 +47,10 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
 
   Future<void> _loadVerses() async {
     setState(() => _isLoading = true);
+    await DatabaseHelper.instance.recordChapterRead(
+      widget.book['id'],
+      _selectedChapter,
+    );
     final data = await DatabaseHelper.instance.getVerses(
       widget.book['id'],
       _selectedChapter,
