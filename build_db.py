@@ -151,40 +151,27 @@ def to_verses_list(chap):
             continue
         v = chap[k]
         if isinstance(v, dict):
-            if "verse" not in v and "Verseid" not in v:
-                v["verse"] = k
             v_list.append(v)
         elif isinstance(v, str):
-            v_list.append({"verse": k, "text": v})
+            v_list.append({"text": v})
         else:
             v_list.append(v)
     return v_list
 
 
-def extract_verse_info(v_item, default_num):
+def extract_verse_text(v_item):
     if isinstance(v_item, dict):
-        v_num = (
-            v_item.get("Verseid")
-            or v_item.get("verseid")
-            or v_item.get("verse")
-            or v_item.get("verse_no")
-            or default_num
-        )
-        try:
-            v_num = int(v_num)
-        except Exception:
-            v_num = default_num
         v_text = (
             v_item.get("Verse")
             or v_item.get("text")
             or v_item.get("verse")
             or ""
         )
-        return v_num, str(v_text).strip()
+        return str(v_text).strip()
     elif isinstance(v_item, str):
-        return default_num, v_item.strip()
+        return v_item.strip()
     else:
-        return default_num, str(v_item).strip()
+        return str(v_item).strip()
 
 
 def parse_bible_dict(file_path):
@@ -197,18 +184,11 @@ def parse_bible_dict(file_path):
     for b_idx, book in enumerate(books, 1):
         chaps = to_chapters_list(book)
         for c_idx, chap in enumerate(chaps, 1):
-            c_num = c_idx
-            if isinstance(chap, dict):
-                raw_c = chap.get("Chapterid") or chap.get("chapter") or c_idx
-                try:
-                    c_num = int(raw_c)
-                except Exception:
-                    c_num = c_idx
             verses = to_verses_list(chap)
             for v_idx, v_item in enumerate(verses, 1):
-                v_num, text = extract_verse_info(v_item, v_idx)
+                text = extract_verse_text(v_item)
                 if text:
-                    v_dict[(b_idx, c_num, v_num)] = text
+                    v_dict[(b_idx, c_idx, v_idx)] = text
     return v_dict
 
 
