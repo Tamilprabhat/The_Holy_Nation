@@ -15,8 +15,8 @@ BOOKS_META = [
     (8, "ரூத்", "Ruth", 4),
     (9, "1 சாமுவேல்", "1 Samuel", 31),
     (10, "2 சாமுவேல்", "2 Samuel", 24),
-    (11, "1 ராஜாக்கள்", "1 Kings", 22),
-    (12, "2 ராஜாக்கள்", "2 Kings", 25),
+    (11, "1 இராஜாக்கள்", "1 Kings", 22),
+    (12, "2 இராஜாக்கள்", "2 Kings", 25),
     (13, "1 நாளாகமம்", "1 Chronicles", 29),
     (14, "2 நாளாகமம்", "2 Chronicles", 36),
     (15, "எஸ்றா", "Ezra", 10),
@@ -73,18 +73,19 @@ BOOKS_META = [
     (66, "வெளிப்படுத்தின விசேஷம்", "Revelation", 22)
 ]
 
+
 def to_books_list(data):
     if isinstance(data, list):
         return data
     if not isinstance(data, dict):
         return []
-    for k in ["books", "Books", "bible", "BIBLEBOOK"]:
+    for k in ["Book", "book", "books", "Books", "bible", "BIBLE"]:
         if k in data and isinstance(data[k], (list, dict)):
             return to_books_list(data[k])
     books = []
     try:
         keys = sorted(data.keys(), key=lambda x: int(x) if str(x).isdigit() else str(x))
-    except:
+    except Exception:
         keys = list(data.keys())
     for k in keys:
         if str(k).lower() in ["version", "language", "format", "title", "description", "creator"]:
@@ -100,25 +101,26 @@ def to_books_list(data):
             books.append(v)
     return books
 
+
 def to_chapters_list(book):
     if isinstance(book, list):
         return book
     if not isinstance(book, dict):
         return []
-    for k in ["chapters", "Chapters", "chapter", "CHAPTER"]:
+    for k in ["Chapter", "chapter", "chapters", "Chapters", "CHAPTER"]:
         if k in book and isinstance(book[k], (list, dict)):
             return to_chapters_list(book[k])
     chaps = []
     try:
         keys = sorted(book.keys(), key=lambda x: int(x) if str(x).isdigit() else str(x))
-    except:
+    except Exception:
         keys = list(book.keys())
     for k in keys:
-        if str(k).lower() in ["name", "testament", "book_nr", "book"]:
+        if str(k).lower() in ["name", "testament", "book_no", "book", "bookid"]:
             continue
         v = book[k]
         if isinstance(v, dict):
-            if "chapter" not in v and "verses" not in v:
+            if "chapter" not in v and "verses" not in v and "Verse" not in v:
                 chaps.append({"chapter": k, "verses": v})
             else:
                 if "chapter" not in v:
@@ -130,25 +132,26 @@ def to_chapters_list(book):
             chaps.append(v)
     return chaps
 
+
 def to_verses_list(chap):
     if isinstance(chap, list):
         return chap
     if not isinstance(chap, dict):
         return []
-    for k in ["verses", "Verses", "verse", "VERSE"]:
+    for k in ["Verse", "verse", "verses", "Verses", "VERSE"]:
         if k in chap and isinstance(chap[k], (list, dict)):
             return to_verses_list(chap[k])
     v_list = []
     try:
         keys = sorted(chap.keys(), key=lambda x: int(x) if str(x).isdigit() else str(x))
-    except:
+    except Exception:
         keys = list(chap.keys())
     for k in keys:
-        if str(k).lower() in ["chapter", "name", "num"]:
+        if str(k).lower() in ["chapter", "name", "num", "chapterid"]:
             continue
         v = chap[k]
         if isinstance(v, dict):
-            if "verse" not in v:
+            if "verse" not in v and "Verseid" not in v:
                 v["verse"] = k
             v_list.append(v)
         elif isinstance(v, str):
@@ -157,40 +160,57 @@ def to_verses_list(chap):
             v_list.append(v)
     return v_list
 
+
 def extract_verse_info(v_item, default_num):
     if isinstance(v_item, dict):
-        v_num = v_item.get("verse", v_item.get("verse_nr", default_num))
+        v_num = (
+            v_item.get("Verseid")
+            or v_item.get("verseid")
+            or v_item.get("verse")
+            or v_item.get("verse_no")
+            or default_num
+        )
         try:
             v_num = int(v_num)
-        except:
+        except Exception:
             v_num = default_num
-        v_text = v_item.get("text", v_item.get("verse", ""))
+        v_text = (
+            v_item.get("Verse")
+            or v_item.get("text")
+            or v_item.get("verse")
+            or ""
+        )
         return v_num, str(v_text).strip()
     elif isinstance(v_item, str):
         return default_num, v_item.strip()
     else:
         return default_num, str(v_item).strip()
 
+
 def parse_bible_dict(file_path):
     if not file_path or not os.path.exists(file_path):
         return {}
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, "r", encoding="utf-8-sig") as f:
         data = json.load(f)
     v_dict = {}
     books = to_books_list(data)
     for b_idx, book in enumerate(books, 1):
         chaps = to_chapters_list(book)
         for c_idx, chap in enumerate(chaps, 1):
-            c_num = chap.get("chapter", c_idx) if isinstance(chap, dict) else c_idx
-            try:
-                c_num = int(c_num)
-            except:
-                c_num = c_idx
+            c_num = c_idx
+            if isinstance(chap, dict):
+                raw_c = chap.get("Chapterid") or chap.get("chapter") or c_idx
+                try:
+                    c_num = int(raw_c)
+                except Exception:
+                    c_num = c_idx
             verses = to_verses_list(chap)
             for v_idx, v_item in enumerate(verses, 1):
                 v_num, text = extract_verse_info(v_item, v_idx)
-                v_dict[(b_idx, c_num, v_num)] = text
+                if text:
+                    v_dict[(b_idx, c_num, v_num)] = text
     return v_dict
+
 
 def build_database():
     source_dir = "bible_source"
@@ -205,7 +225,7 @@ def build_database():
     english_path = None
 
     for root, dirs, files in os.walk(source_dir):
-        for f in files:
+        for f in sorted(files):
             if f.endswith(".json"):
                 full_path = os.path.join(root, f)
                 lower_path = full_path.lower()
@@ -222,6 +242,10 @@ def build_database():
     en_dict = parse_bible_dict(english_path)
     print(f"Total English verses parsed: {len(en_dict)}")
 
+    if len(ta_dict) == 0 and len(en_dict) == 0:
+        print("ERROR: No verses were parsed from JSON files!")
+        sys.exit(1)
+
     os.makedirs("assets", exist_ok=True)
     db_path = os.path.join("assets", "holy_nation.db")
     if os.path.exists(db_path):
@@ -230,7 +254,7 @@ def build_database():
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    cur.execute('''
+    cur.execute("""
     CREATE TABLE books (
         id INTEGER PRIMARY KEY,
         name_ta TEXT NOT NULL,
@@ -238,9 +262,9 @@ def build_database():
         testament TEXT NOT NULL,
         chapters_count INTEGER NOT NULL
     );
-    ''')
+    """)
 
-    cur.execute('''
+    cur.execute("""
     CREATE TABLE verses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         book_id INTEGER NOT NULL,
@@ -249,12 +273,12 @@ def build_database():
         text_ta TEXT NOT NULL,
         text_en TEXT NOT NULL
     );
-    ''')
+    """)
 
-    cur.execute('CREATE INDEX idx_verses_book_chapter ON verses (book_id, chapter);')
+    cur.execute("CREATE INDEX idx_verses_book_chap ON verses (book_id, chapter);")
 
     books_rows = []
-    for (b_id, name_ta, name_en, ch_count) in BOOKS_META:
+    for b_id, name_ta, name_en, ch_count in BOOKS_META:
         testament = "Old Testament" if b_id <= 39 else "New Testament"
         books_rows.append((b_id, name_ta, name_en, testament, ch_count))
     cur.executemany("INSERT INTO books VALUES (?, ?, ?, ?, ?)", books_rows)
@@ -268,6 +292,7 @@ def build_database():
     conn.commit()
     print(f"Success! {len(books_rows)} books and {len(verses_rows)} verses inserted into holy_nation.db.")
     conn.close()
+
 
 if __name__ == "__main__":
     build_database()
