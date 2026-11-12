@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/local/database_helper.dart';
@@ -26,11 +27,99 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
   List _verses = [];
   Set _bookmarkedVerses = {};
 
+  // நியாயமான வாசிப்புக் கண்காணிப்பு (Smart Reading Mode)
+  final ScrollController _scrollController = ScrollController();
+  Timer? _readingTimer;
+  int _secondsSpent = 0;
+  int _requiredSeconds = 15;
+  double _maxScrollRatio = 0.0;
+  bool _isChapterCounted = false;
+
   @override
   void initState() {
     super.initState();
     _selectedChapter = widget.initialChapter;
+    _scrollController.addListener(_onScroll);
     _initData();
+  }
+
+  @override
+  void dispose() {
+    _readingTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _isChapterCounted) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+
+    if (maxScroll <= 0) {
+      _maxScrollRatio = 1.0;
+    } else {
+      final ratio = (currentScroll / maxScroll).clamp(0.0, 1.0);
+      if (ratio > _maxScrollRatio) {
+        _maxScrollRatio = ratio;
+      }
+    }
+    _evaluateReadingCompletion();
+  }
+
+  void _startReadingTracker(int verseCount, bool alreadyRead) {
+    _readingTimer?.cancel();
+    _secondsSpent = 0;
+    _maxScrollRatio = 0.0;
+    _isChapterCounted = alreadyRead;
+
+    // வசனங்களின் எண்ணிக்கைக்கு ஏற்ப குறைந்தபட்ச வாசிப்பு நேரம் (12 - 40 வினாடிகள்)
+    _requiredSeconds = (verseCount * 0.7).round().clamp(12, 40);
+
+    if (alreadyRead) return;
+
+    _readingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _secondsSpent++;
+      });
+
+      // சிறிய அதிகாரம் (ஸ்க்ரோல் இல்லாதது) எனில் நேரம் முடிந்ததும் 100% ஆகும்
+      if (_scrollController.hasClients &&
+          _scrollController.position.maxScrollExtent <= 20) {
+        _maxScrollRatio = 1.0;
+      }
+
+      _evaluateReadingCompletion();
+    });
+  }
+
+  Future<void> _evaluateReadingCompletion() async {
+    if (_isChapterCounted) return;
+    // 1. குறைந்தபட்ச நேரம் செலவிட்டிருக்க வேண்டும் AND 2. 85% மேல் ஸ்க்ரோல் செய்திருக்க வேண்டும்
+    if (_secondsSpent >= _requiredSeconds && _maxScrollRatio >= 0.85) {
+      _isChapterCounted = true;
+      _readingTimer?.cancel();
+      await DatabaseHelper.instance.recordChapterRead(
+        widget.book['id'],
+        _selectedChapter,
+      );
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '✓ ${widget.book['name_ta']} அதிகாரம் $_selectedChapter முழுமையாக வாசித்ததாகப் பதியப்பட்டது!',
+            ),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.teal.shade800,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _initData() async {
@@ -47,7 +136,11 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
 
   Future<void> _loadVerses() async {
     setState(() => _isLoading = true);
-    await DatabaseHelper.instance.recordChapterRead(
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+
+    final alreadyRead = await DatabaseHelper.instance.isChapterAlreadyRead(
       widget.book['id'],
       _selectedChapter,
     );
@@ -59,12 +152,14 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
       widget.book['id'],
       _selectedChapter,
     );
+
     if (mounted) {
       setState(() {
         _verses = data;
         _bookmarkedVerses = bookmarks;
         _isLoading = false;
       });
+      _startReadingTracker(data.length, alreadyRead);
     }
   }
 
@@ -122,6 +217,12 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
     final bookName = _isTamilPrimary
         ? (widget.book['name_ta'] ?? widget.book['name'] ?? '')
         : (widget.book['name_en'] ?? widget.book['name_ta'] ?? '');
+
+    final double timeProgress =
+        (_secondsSpent / _requiredSeconds).clamp(0.0, 1.0);
+    final double scrollProgress = (_maxScrollRatio / 0.85).clamp(0.0, 1.0);
+    final double combinedProgress =
+        _isChapterCounted ? 1.0 : ((timeProgress + scrollProgress) / 2);
 
     return Scaffold(
       backgroundColor: const Color(0xFF12141D),
@@ -232,7 +333,48 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
               },
             ),
           ),
-          const Divider(height: 1, color: Colors.white12),
+
+          // நியாயமான வாசிப்பு நிலை காட்டி (Bible Reading Mode Bar)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            color: const Color(0xFF161822),
+            child: Row(
+              children: [
+                Icon(
+                  _isChapterCounted
+                      ? Icons.verified_rounded
+                      : Icons.auto_stories_rounded,
+                  size: 15,
+                  color: _isChapterCounted
+                      ? Colors.tealAccent
+                      : Colors.amberAccent,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _isChapterCounted
+                        ? 'வாசிப்பு நிறைவடைந்தது (Counted)'
+                        : 'வாசிப்பு முறை: பொறுமையாக முழு அதிகாரத்தையும் வாசியுங்கள் (${(combinedProgress * 100).round()}%)',
+                    style: TextStyle(
+                      color: _isChapterCounted
+                          ? Colors.tealAccent
+                          : Colors.white60,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          LinearProgressIndicator(
+            value: combinedProgress,
+            minHeight: 2.5,
+            backgroundColor: Colors.white10,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              _isChapterCounted ? Colors.tealAccent : Colors.indigoAccent,
+            ),
+          ),
+
           Expanded(
             child: _isLoading
                 ? const Center(
@@ -247,6 +389,7 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                         ),
                       )
                     : ListView.separated(
+                        controller: _scrollController,
                         padding: const EdgeInsets.all(16),
                         itemCount: _verses.length,
                         separatorBuilder: (context, index) =>
