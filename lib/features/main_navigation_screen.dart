@@ -28,12 +28,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildBibleTab() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
+    return FutureBuilder<List>>(
       future: DatabaseHelper.instance.getAllBooks(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Colors.indigoAccent));
         }
+
         if (snapshot.hasError) {
           return Center(
             child: Text(
@@ -42,6 +43,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             ),
           );
         }
+
         final books = snapshot.data ?? [];
         if (books.isEmpty) {
           return const Center(
@@ -58,6 +60,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           separatorBuilder: (context, index) => const Divider(color: Colors.white10),
           itemBuilder: (context, index) {
             final book = books[index];
+
+            // 1. தமிழ் மற்றும் ஆங்கிலப் பெயர்களைச் சரியாக எடுத்தல்
+            final String nameTa = (book['name_ta'] ?? '').toString();
+            final String nameEn = (book['name_en'] ?? '').toString();
+            final String bookTitle = nameTa.isNotEmpty
+                ? (nameEn.isNotEmpty ? '$nameTa ($nameEn)' : nameTa)
+                : nameEn;
+
+            // 2. "Testament" இருமுறை வருவதைத் தடுத்தல்
+            final String rawTestament = (book['testament'] ?? '').toString().trim();
+            final String testamentText = rawTestament.toLowerCase().contains('testament')
+                ? rawTestament
+                : '$rawTestament Testament';
+
             return ListTile(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -71,7 +87,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 ),
               ),
               title: Text(
-                book['name'] ?? '',
+                bookTitle,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
@@ -79,7 +95,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 ),
               ),
               subtitle: Text(
-                '${book['testament'] ?? ''} Testament • ${book['chapters_count'] ?? 0} Chapters',
+                '$testamentText • ${book['chapters_count'] ?? 0} Chapters',
                 style: const TextStyle(color: Colors.white54, fontSize: 13),
               ),
               trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
@@ -120,7 +136,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFF12121E),
+      backgroundColor: const Color(0xFF12121A),
       appBar: AppBar(
         title: Text(
           _currentIndex == 1 ? 'Bible' : 'The Holy Nation',
