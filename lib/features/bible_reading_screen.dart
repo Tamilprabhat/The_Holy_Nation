@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/local/database_helper.dart';
 
 class BibleReadingScreen extends StatefulWidget {
-  final Map<String, dynamic> book;
+  final dynamic book;
   final int initialChapter;
 
   const BibleReadingScreen({
@@ -20,7 +20,7 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
   int _totalChapters = 1;
   bool _isLoading = true;
   bool _isTamilPrimary = true;
-  List> _verses = [];
+  List _verses = [];
 
   @override
   void initState() {
