@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/local/database_helper.dart';
 import 'bible_reading_screen.dart';
+import 'bible_search_screen.dart';
+import 'bookmarks_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -23,7 +25,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   Widget _buildHomeTab() {
     return const Center(
-      child: Text('Home Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+      child: Text('Home Screen',
+          style: TextStyle(color: Colors.white70, fontSize: 18)),
     );
   }
 
@@ -32,7 +35,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       future: DatabaseHelper.instance.getAllBooks(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Colors.indigoAccent));
+          return const Center(
+              child: CircularProgressIndicator(color: Colors.indigoAccent));
         }
 
         if (snapshot.hasError) {
@@ -57,7 +61,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: books.length,
-          separatorBuilder: (context, index) => const Divider(color: Colors.white10),
+          separatorBuilder: (context, index) =>
+              const Divider(color: Colors.white10),
           itemBuilder: (context, index) {
             final book = books[index];
 
@@ -67,10 +72,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 ? (nameEn.isNotEmpty ? '$nameTa ($nameEn)' : nameTa)
                 : nameEn;
 
-            final String rawTestament = (book['testament'] ?? '').toString().trim();
-            final String testamentText = rawTestament.toLowerCase().contains('testament')
-                ? rawTestament
-                : '$rawTestament Testament';
+            final String rawTestament =
+                (book['testament'] ?? '').toString().trim();
+            final String testamentText =
+                rawTestament.toLowerCase().contains('testament')
+                    ? rawTestament
+                    : '$rawTestament Testament';
 
             return ListTile(
               shape: RoundedRectangleBorder(
@@ -81,7 +88,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 backgroundColor: Colors.indigoAccent,
                 child: Text(
                   '${book['id']}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
               title: Text(
@@ -96,7 +104,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 '$testamentText • ${book['chapters_count'] ?? 0} Chapters',
                 style: const TextStyle(color: Colors.white54, fontSize: 13),
               ),
-              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+              trailing: const Icon(Icons.arrow_forward_ios,
+                  color: Colors.white54, size: 16),
               onTap: () => _openBibleReading(book),
             );
           },
@@ -107,19 +116,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   Widget _buildPasDTab() {
     return const Center(
-      child: Text('Pas D Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+      child: Text('Pas D Screen',
+          style: TextStyle(color: Colors.white70, fontSize: 18)),
     );
   }
 
   Widget _buildCommunityTab() {
     return const Center(
-      child: Text('Community Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+      child: Text('Community Screen',
+          style: TextStyle(color: Colors.white70, fontSize: 18)),
     );
   }
 
   Widget _buildProfileTab() {
     return const Center(
-      child: Text('Profile Screen', style: TextStyle(color: Colors.white70, fontSize: 18)),
+      child: Text('Profile Screen',
+          style: TextStyle(color: Colors.white70, fontSize: 18)),
     );
   }
 
@@ -138,11 +150,41 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       appBar: AppBar(
         title: Text(
           _currentIndex == 1 ? 'Bible' : 'The Holy Nation',
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style:
+              const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: const Color(0xFF1E1E2C),
         elevation: 0,
         centerTitle: true,
+        actions: _currentIndex == 1
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.search, color: Colors.white),
+                  tooltip: 'Search Verses',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BibleSearchScreen(),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.bookmarks_outlined,
+                      color: Colors.amberAccent),
+                  tooltip: 'Saved Bookmarks',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BookmarksScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ]
+            : null,
       ),
       body: screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
