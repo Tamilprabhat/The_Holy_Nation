@@ -12,7 +12,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 1;
 
-  void _openBibleReading(Map<String, dynamic> book) {
+  void _openBibleReading(dynamic book) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -28,7 +28,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildBibleTab() {
-    return FutureBuilder<List>>(
+    return FutureBuilder(
       future: DatabaseHelper.instance.getAllBooks(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -44,7 +44,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           );
         }
 
-        final books = snapshot.data ?? [];
+        final books = (snapshot.data as List?) ?? [];
         if (books.isEmpty) {
           return const Center(
             child: Text(
@@ -61,14 +61,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           itemBuilder: (context, index) {
             final book = books[index];
 
-            // 1. தமிழ் மற்றும் ஆங்கிலப் பெயர்களைச் சரியாக எடுத்தல்
             final String nameTa = (book['name_ta'] ?? '').toString();
             final String nameEn = (book['name_en'] ?? '').toString();
             final String bookTitle = nameTa.isNotEmpty
                 ? (nameEn.isNotEmpty ? '$nameTa ($nameEn)' : nameTa)
                 : nameEn;
 
-            // 2. "Testament" இருமுறை வருவதைத் தடுத்தல்
             final String rawTestament = (book['testament'] ?? '').toString().trim();
             final String testamentText = rawTestament.toLowerCase().contains('testament')
                 ? rawTestament
