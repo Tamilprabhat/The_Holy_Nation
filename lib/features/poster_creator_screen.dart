@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../data/local/database_helper.dart';
 
 class PosterCreatorScreen extends StatefulWidget {
@@ -23,14 +25,42 @@ class _PosterCreatorScreenState extends State<PosterCreatorScreen> {
       TextEditingController(text: 'விசுவாசி (Believer)');
 
   int _selectedColor = 0xFF1E2A4A;
+  File? _pickedImageFile;
+  double _overlayDarkness = 0.45;
+  int _selectedPresetIndex = 0;
 
-  final List _bgOptions = [
-    0xFF1E2A4A, // ஆழமான நீலம்
-    0xFF1B363D, // அமைதிப் பச்சை
-    0xFF2B2144, // ராஜரீக ஊதா
-    0xFF3A243B, // மென்மையான மெரூன்
-    0xFF252836, // கிளாசிக் டார்க்
-    0xFF1F332B, // ஆலிவ் பச்சை
+  // பலதரப்பட்ட வண்ணங்கள் & AI ஆவிக்குரிய தீம்கள்
+  final List _presets = [
+    {
+      'name': 'வான மகிமை',
+      'primary': 0xFF1E2A4A,
+      'secondary': 0xFF3949AB,
+      'icon': Icons.wb_sunny_outlined,
+    },
+    {
+      'name': 'அமைதி நதி',
+      'primary': 0xFF133B3A,
+      'secondary': 0xFF00796B,
+      'icon': Icons.water_outlined,
+    },
+    {
+      'name': 'சிலுவை ஒளி',
+      'primary': 0xFF3B1D36,
+      'secondary': 0xFF8E24AA,
+      'icon': Icons.auto_awesome,
+    },
+    {
+      'name': 'பொன் காலை',
+      'primary': 0xFF4A2C11,
+      'secondary': 0xFFE65100,
+      'icon': Icons.landscape_outlined,
+    },
+    {
+      'name': 'இரவு நட்சத்திரம்',
+      'primary': 0xFF141824,
+      'secondary': 0xFF283593,
+      'icon': Icons.nights_stay_outlined,
+    },
   ];
 
   @override
@@ -46,6 +76,19 @@ class _PosterCreatorScreenState extends State<PosterCreatorScreen> {
     super.dispose();
   }
 
+  Future<void> _pickFromGallery() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _pickedImageFile = File(picked.path);
+      });
+    }
+  }
+
   Future<void> _publishPoster() async {
     final text = _textController.text.trim();
     final author = _nameController.text.trim().isEmpty
@@ -59,6 +102,7 @@ class _PosterCreatorScreenState extends State<PosterCreatorScreen> {
       verseText: text,
       authorName: author,
       bgColor: _selectedColor,
+      imagePath: _pickedImageFile?.path,
     );
 
     if (!mounted) return;
@@ -68,6 +112,8 @@ class _PosterCreatorScreenState extends State<PosterCreatorScreen> {
   @override
   Widget build(BuildContext context) {
     final isPromise = widget.category == 'promise';
+    final preset = _presets[_selectedPresetIndex];
+
     return Scaffold(
       backgroundColor: const Color(0xFF12141D),
       appBar: AppBar(
@@ -93,99 +139,231 @@ class _PosterCreatorScreenState extends State<PosterCreatorScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // நேரடி முன்னோட்டம் (Live Poster Preview)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Color(_selectedColor),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isPromise ? 'இன்றைய வாக்குத்தத்தம்' : 'இன்றைய விசுவாச அறிக்கை',
-                    style: const TextStyle(
-                      color: Colors.amberAccent,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
+            // நேரடி போஸ்டர் முன்னோட்டம் (Instagram / Facebook Style Card)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(minHeight: 220),
+                decoration: BoxDecoration(
+                  gradient: _pickedImageFile == null
+                      ? LinearGradient(
+                          colors: [
+                            Color(preset['primary']),
+                            Color(preset['secondary']),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  image: _pickedImageFile != null
+                      ? DecorationImage(
+                          image: FileImage(_pickedImageFile!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: _pickedImageFile != null
+                        ? Colors.black.withValues(alpha: _overlayDarkness)
+                        : Colors.transparent,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _textController.text,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        widget.initialRef,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black38,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          isPromise
+                              ? 'இன்றைய வாக்குத்தத்தம்'
+                              : 'இன்றைய விசுவாச அறிக்கை',
+                          style: const TextStyle(
+                            color: Colors.amberAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 14),
                       Text(
-                        '— ${_nameController.text}',
+                        _textController.text,
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          height: 1.55,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black54,
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.initialRef,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.amberAccent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '— ${_nameController.text} • THE HOLY NATION',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
 
-            const SizedBox(height: 20),
-            const Text(
-              'பின்னணி வண்ணம் தேர்வு செய்க:',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
+
+            // கேலரி புகைப்படம் தேர்வு பொத்தான்
             Row(
-              children: _bgOptions.map((colorVal) {
-                final bool selected = _selectedColor == colorVal;
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedColor = colorVal),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: Color(colorVal),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selected ? Colors.amberAccent : Colors.white24,
-                        width: selected ? 2.5 : 1,
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25293A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Colors.indigoAccent),
                       ),
                     ),
-                    child: selected
-                        ? const Icon(Icons.check, color: Colors.white, size: 18)
-                        : null,
+                    onPressed: _pickFromGallery,
+                    icon: const Icon(Icons.photo_library_rounded,
+                        color: Colors.amberAccent),
+                    label: Text(
+                      _pickedImageFile == null
+                          ? 'கேலரியிலிருந்து புகைப்படம் சேர்'
+                          : 'வேறொரு புகைப்படம் மாற்று',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
-                );
-              }).toList(),
+                ),
+                if (_pickedImageFile != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+                    ),
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent),
+                    onPressed: () => setState(() => _pickedImageFile = null),
+                  ),
+                ],
+              ],
             ),
 
-            const SizedBox(height: 20),
+            if (_pickedImageFile != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text(
+                    'எழுத்து தெளிவு (Dark Overlay):',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: _overlayDarkness,
+                      min: 0.1,
+                      max: 0.8,
+                      activeColor: Colors.indigoAccent,
+                      onChanged: (val) =>
+                          setState(() => _overlayDarkness = val),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            const SizedBox(height: 14),
+            const Text(
+              'அல்லது ஆவிக்குரிய வண்ண தீம்கள் (Themes):',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 46,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _presets.length,
+                itemBuilder: (context, index) {
+                  final item = _presets[index];
+                  final bool isSelected =
+                      _pickedImageFile == null && _selectedPresetIndex == index;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _pickedImageFile = null;
+                        _selectedPresetIndex = index;
+                        _selectedColor = item['primary'];
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(item['primary']),
+                            Color(item['secondary']),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.amberAccent
+                              : Colors.white24,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(item['icon'], size: 16, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text(
+                            item['name'],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 18),
             const Text(
               'உங்கள் பெயர்:',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
+              style: TextStyle(color: Colors.white70, fontSize: 13),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             TextField(
               controller: _nameController,
               onChanged: (_) => setState(() {}),
@@ -200,12 +378,12 @@ class _PosterCreatorScreenState extends State<PosterCreatorScreen> {
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             const Text(
-              'வசனம்:',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
+              'வசனம் (தேவைப்பட்டால் திருத்தலாம்):',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             TextField(
               controller: _textController,
               maxLines: 4,
@@ -221,7 +399,7 @@ class _PosterCreatorScreenState extends State<PosterCreatorScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             SizedBox(
               width: double.infinity,
               height: 48,
