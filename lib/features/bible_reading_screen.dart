@@ -19,8 +19,8 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
   late int _selectedChapter;
   int _totalChapters = 1;
   bool _isLoading = true;
-  bool _isTamilPrimary = true; // தமிழ் முதன்மை அல்லது ஆங்கிலம் முதன்மை என்பதைக் கட்டுப்படுத்தும் நிலை
-  List<Map<String, dynamic>> _verses = [];
+  bool _isTamilPrimary = true;
+  List> _verses = [];
 
   @override
   void initState() {
@@ -35,8 +35,8 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
       setState(() {
         _totalChapters = count > 0 ? count : (widget.book['chapters_count'] ?? 1);
       });
-      _loadVerses();
     }
+    _loadVerses();
   }
 
   Future<void> _loadVerses() async {
@@ -55,7 +55,6 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // முதன்மை மொழிக்கு ஏற்ப தலைப்பு பெயர் மாறும்
     final bookName = _isTamilPrimary
         ? (widget.book['name_ta'] ?? widget.book['name'] ?? '')
         : (widget.book['name_en'] ?? widget.book['name_ta'] ?? '');
@@ -71,11 +70,14 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
         ),
         title: Text(
           '$bookName ($_selectedChapter)',
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 19),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 18,
+          ),
         ),
         centerTitle: true,
         actions: [
-          // மொழி முன்னுரிமையை மாற்றும் பட்டன் (TA / EN Switcher)
           InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () {
@@ -111,10 +113,9 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
       ),
       body: Column(
         children: [
-          // அதிகாரங்களை மாற்றும் கிடைமட்ட வரிசை (Horizontal Chapter Selector)
           Container(
             height: 52,
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _totalChapters,
@@ -133,10 +134,14 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF2C3E6B) : const Color(0xFF1C1E2A),
+                        color: isSelected
+                            ? const Color(0xFF2C3E6B)
+                            : const Color(0xFF1C1E2A),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: isSelected ? Colors.indigoAccent : Colors.white12,
+                          color: isSelected
+                              ? Colors.indigoAccent
+                              : Colors.white12,
                         ),
                       ),
                       child: Row(
@@ -149,7 +154,9 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                             '$ch',
                             style: TextStyle(
                               color: isSelected ? Colors.white : Colors.white70,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                             ),
                           ),
                         ],
@@ -161,54 +168,69 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
             ),
           ),
           const Divider(height: 1, color: Colors.white12),
-
-          // வசனங்கள் பட்டியல்
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.indigoAccent))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _verses.length,
-                    separatorBuilder: (context, index) => const Divider(height: 28, color: Colors.white10),
-                    itemBuilder: (context, index) {
-                      final verse = _verses[index];
-                      final taText = verse['text_ta'] ?? verse['text'] ?? '';
-                      final enText = verse['text_en'] ?? '';
-
-                      // பயனர் தேர்வுக்கேற்ப முதன்மை மற்றும் துணை உரையைத் தீர்மானித்தல்
-                      final primaryText = _isTamilPrimary ? taText : enText;
-                      final secondaryText = _isTamilPrimary ? enText : taText;
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // முதன்மை வசனம் (பெரிய எழுத்து)
-                          Text(
-                            '${verse['verse']}. $primaryText',
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.indigoAccent),
+                  )
+                : _verses.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Text(
+                            'Book ID: ${widget.book['id']}, Chapter: $_selectedChapter-க்கான வசனங்கள் டேட்டாபேஸில் இல்லை.\n(holy_nation.db கோப்பில் verses டேட்டா உள்ளதா எனச் சரிபார்க்கவும்)',
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w500,
+                              color: Colors.white70,
+                              fontSize: 15,
                               height: 1.5,
                             ),
                           ),
-                          if (secondaryText.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            // துணை வசனம் (சிறிய எழுத்து)
-                            Text(
-                              secondaryText,
-                              style: TextStyle(
-                                color: Colors.white60,
-                                fontSize: 14,
-                                fontStyle: _isTamilPrimary ? FontStyle.italic : FontStyle.normal,
-                                height: 1.4,
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _verses.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 24, color: Colors.white10),
+                        itemBuilder: (context, index) {
+                          final verse = _verses[index];
+                          final taText = verse['text_ta'] ?? verse['text'] ?? '';
+                          final enText = verse['text_en'] ?? '';
+
+                          final primaryText = _isTamilPrimary ? taText : enText;
+                          final secondaryText = _isTamilPrimary ? enText : taText;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${verse['verse']}. $primaryText',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.5,
+                                ),
                               ),
-                            ),
-                          ],
-                        ],
-                      );
-                    },
-                  ),
+                              if (secondaryText.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  secondaryText,
+                                  style: TextStyle(
+                                    color: Colors.white60,
+                                    fontSize: 14,
+                                    fontStyle: _isTamilPrimary
+                                        ? FontStyle.italic
+                                        : FontStyle.normal,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
+                      ),
           ),
         ],
       ),
