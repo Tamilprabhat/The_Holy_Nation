@@ -3,6 +3,7 @@ import '../data/local/database_helper.dart';
 import 'bible_reading_screen.dart';
 import 'bible_search_screen.dart';
 import 'bookmarks_screen.dart';
+import 'home_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -12,7 +13,7 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _currentIndex = 1;
+  int _currentIndex = 0;
 
   void _openBibleReading(dynamic book) {
     Navigator.push(
@@ -24,10 +25,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildHomeTab() {
-    return const Center(
-      child: Text('Home Screen',
-          style: TextStyle(color: Colors.white70, fontSize: 18)),
-    );
+    return const HomeScreen();
   }
 
   Widget _buildBibleTab() {
@@ -149,7 +147,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       backgroundColor: const Color(0xFF12121A),
       appBar: AppBar(
         title: Text(
-          _currentIndex == 1 ? 'Bible' : 'The Holy Nation',
+          _currentIndex == 1 ? 'Bible' : 'THE HOLY NATION',
           style:
               const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
