@@ -22,25 +22,27 @@ class PasDService {
 
   static Future<String> askPasD(
     String userMessage, {
-    List> history = const [],
+    List history = const [],
   }) async {
     final cleanedKey = _apiKey.trim();
     if (cleanedKey.isEmpty) {
       return 'API Key கட்டமைக்கப்படவில்லை. GitHub Secrets-ல் GEMINI_API_KEY சேர்க்கப்பட்டுள்ளதா எனச் சரிபார்க்கவும்.';
     }
 
-    final List> contents = [];
+    final List contents = [];
 
     for (final msg in history) {
-      final role = msg['role'] == 'user' ? 'user' : 'model';
-      final text = msg['text'] ?? msg['content'] ?? '';
-      if (text.trim().isNotEmpty) {
-        contents.add({
-          'role': role,
-          'parts': [
-            {'text': text}
-          ],
-        });
+      if (msg is Map) {
+        final role = msg['role'] == 'user' ? 'user' : 'model';
+        final text = (msg['text'] ?? msg['content'] ?? '').toString();
+        if (text.trim().isNotEmpty) {
+          contents.add({
+            'role': role,
+            'parts': [
+              {'text': text}
+            ],
+          });
+        }
       }
     }
 
@@ -86,11 +88,11 @@ class PasDService {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(utf8.decode(response.bodyBytes));
-          final candidates = data['candidates'] as List<dynamic>?;
-          if (candidates != null && candidates.isNotEmpty) {
+          final candidates = data['candidates'];
+          if (candidates is List && candidates.isNotEmpty) {
             final content = candidates[0]['content'];
-            final parts = content?['parts'] as List<dynamic>?;
-            if (parts != null && parts.isNotEmpty) {
+            final parts = content != null ? content['parts'] : null;
+            if (parts is List && parts.isNotEmpty) {
               final reply = parts[0]['text']?.toString().trim();
               if (reply != null && reply.isNotEmpty) {
                 return reply;
@@ -99,7 +101,6 @@ class PasDService {
           }
           return 'மன்னிக்கவும், இப்போதைக்கு பதில் உருவாக்க முடியவில்லை. சற்று நேரம் கழித்து மீண்டும் கேளுங்கள்.';
         } else if (response.statusCode == 404) {
-          // இந்த மாடல் கிடைக்கவில்லை என்றால் அடுத்த மாடலுக்கு தானாக மாறும்
           continue;
         } else if (response.statusCode == 400 || response.statusCode == 403) {
           return 'API Key அனுமதிப் பிழை (${response.statusCode}). Google AI Studio-வில் உங்கள் API Key சரியாக உள்ளதா எனச் சரிபார்க்கவும்.';
@@ -118,7 +119,7 @@ class PasDService {
 
   Future<String> sendMessage(
     String userMessage, {
-    List> history = const [],
+    List history = const [],
   }) {
     return askPasD(userMessage, history: history);
   }
