@@ -1,54 +1,48 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
-
-class ChatMessage {
-  final String text;
-  final bool isUser;
-  final DateTime timestamp;
-
-  ChatMessage({
-    required this.text,
-    required this.isUser,
-    DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
-}
 
 class PasDService {
   static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
-  static const String _model = 'gemini-2.5-flash';
 
-  static const String _systemPrompt = '''
-You are "Pas D" (Pastor D), a compassionate, wise, and biblically grounded Digital Pastor inside "The Holy Nation" Christian mobile application.
+  static const List<String> _models = [
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+  ];
 
-Core Guidelines:
-1. Language Adaptation: Always reply in the exact language the user writes in (Tamil, English, or Tanglish). If the user asks in Tamil, reply in clear, respectful, natural Tamil (using standard Tamil Bible terminology like கர்த்தர், இயேசு கிறிஸ்து, பரிசுத்த ஆவியானவர், வேதாகமம்).
-2. Biblical Foundation: Ground every answer strictly in the Holy Bible (Old and New Testaments). Always cite exact Book, Chapter, and Verse references (e.g., சங்கீதம் 23:1 / Psalm 23:1) to support your guidance.
-3. Tone & Pastoral Care: Speak with grace, humility, empathy, and spiritual encouragement. Avoid harsh condemnation or sectarian arguments; focus on Christ-centered truth, prayer, faith, and holiness.
-4. Structure: Keep answers clear, well-structured, and easy to read on a mobile screen. When appropriate, conclude with a short, heartfelt 2-3 line prayer for the user.
-5. Boundaries: If asked about non-biblical, harmful, or secular topics unrelated to faith/life guidance, gently redirect the conversation back to Scripture and spiritual well-being.
+  static const String _systemInstruction = '''
+நீங்கள் "Pas D" — "The Holy Nation" (பரிசுத்த ஜாதி - 1 பேதுரு 2:9) செயலியின் அன்பான, வேதாகம அறிவு நிறைந்த AI டிஜிட்டல் போதகர் (AI Digital Pastor).
+உங்கள் வழிகாட்டுதல் விதிகள்:
+1. பயனர் தமிழில் கேட்டால் தெளிவான, இனிமையான தமிழிலும், ஆங்கிலத்தில் கேட்டால் ஆங்கிலத்திலும் பதிலளிக்கவும்.
+2. ஒவ்வொரு ஆலோசனைக்கும் பொருத்தமான பரிசுத்த வேதாகம வசனங்களை (புத்தகம், அதிகாரம், வசனம் குறிப்பிட்டு — எ.கா: பிலிப்பியர் 4:6-7, சங்கீதம் 23:1) ஆதாரமாகக் கொடுக்கவும்.
+3. பதில்கள் ஆறுதலாகவும், நம்பிக்கையூட்டுவதாகவும், கிறிஸ்தவ அன்போடும் சுருக்கமாகவும் தெளிவாகவும் இருக்க வேண்டும்.
+4. கடைசியில் பயனருக்காக ஒரு சிறிய, ஊக்கமளிக்கும் ஜெபக் குறிப்பைச் சேர்க்கவும்.
 ''';
 
-  Future<String> askPasD(List<ChatMessage> history, String userMessage) async {
-    if (_apiKey.isEmpty) {
+  static Future<String> askPasD(
+    String userMessage, {
+    List> history = const [],
+  }) async {
+    final cleanedKey = _apiKey.trim();
+    if (cleanedKey.isEmpty) {
       return 'API Key கட்டமைக்கப்படவில்லை. GitHub Secrets-ல் GEMINI_API_KEY சேர்க்கப்பட்டுள்ளதா எனச் சரிபார்க்கவும்.';
     }
 
-    final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$_apiKey',
-    );
+    final List> contents = [];
 
-    final recentHistory = history.length > 10
-        ? history.sublist(history.length - 10)
-        : history;
-
-    final contents = recentHistory.map((msg) {
-      return {
-        'role': msg.isUser ? 'user' : 'model',
-        'parts': [
-          {'text': msg.text}
-        ],
-      };
-    }).toList();
+    for (final msg in history) {
+      final role = msg['role'] == 'user' ? 'user' : 'model';
+      final text = msg['text'] ?? msg['content'] ?? '';
+      if (text.trim().isNotEmpty) {
+        contents.add({
+          'role': role,
+          'parts': [
+            {'text': text}
+          ],
+        });
+      }
+    }
 
     contents.add({
       'role': 'user',
@@ -57,33 +51,79 @@ Core Guidelines:
       ],
     });
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'system_instruction': {
-            'parts': [
-              {'text': _systemPrompt}
-            ]
-          },
-          'contents': contents,
-          'generationConfig': {
-            'temperature': 0.6,
-            'maxOutputTokens': 1024,
-          }
-        }),
-      );
+    final requestBody = jsonEncode({
+      'systemInstruction': {
+        'parts': [
+          {'text': _systemInstruction}
+        ]
+      },
+      'contents': contents,
+      'generationConfig': {
+        'temperature': 0.7,
+        'maxOutputTokens': 1024,
+      },
+    });
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final reply = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        return reply ?? 'மன்னிக்கவும், தற்போது பதில் அளிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.';
-      } else {
-        return 'தொடர்புப் பிழை (${response.statusCode}). இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.';
+    int lastStatusCode = 0;
+
+    try {
+      for (final model in _models) {
+        final uri = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$cleanedKey',
+        );
+
+        final response = await http
+            .post(
+              uri,
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: requestBody,
+            )
+            .timeout(const Duration(seconds: 30));
+
+        lastStatusCode = response.statusCode;
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(utf8.decode(response.bodyBytes));
+          final candidates = data['candidates'] as List<dynamic>?;
+          if (candidates != null && candidates.isNotEmpty) {
+            final content = candidates[0]['content'];
+            final parts = content?['parts'] as List<dynamic>?;
+            if (parts != null && parts.isNotEmpty) {
+              final reply = parts[0]['text']?.toString().trim();
+              if (reply != null && reply.isNotEmpty) {
+                return reply;
+              }
+            }
+          }
+          return 'மன்னிக்கவும், இப்போதைக்கு பதில் உருவாக்க முடியவில்லை. சற்று நேரம் கழித்து மீண்டும் கேளுங்கள்.';
+        } else if (response.statusCode == 404) {
+          // இந்த மாடல் கிடைக்கவில்லை என்றால் அடுத்த மாடலுக்கு தானாக மாறும்
+          continue;
+        } else if (response.statusCode == 400 || response.statusCode == 403) {
+          return 'API Key அனுமதிப் பிழை (${response.statusCode}). Google AI Studio-வில் உங்கள் API Key சரியாக உள்ளதா எனச் சரிபார்க்கவும்.';
+        } else if (response.statusCode == 429) {
+          return 'அதிகப்படியான கேள்விகள் கேட்கப்பட்டுள்ளன (429). ஒரு நிமிடம் கழித்து மீண்டும் முயற்சிக்கவும்.';
+        }
       }
-    } catch (e) {
+
+      return 'தொடர்புப் பிழை ($lastStatusCode). சற்று நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.';
+    } on SocketException {
       return 'இணையத் தொடர்பு துண்டிக்கப்பட்டுள்ளது. உங்கள் நெட்வொர்க்கைச் சரிபார்க்கவும்.';
+    } catch (e) {
+      return 'தொடர்புப் பிழை ஏற்பட்டுள்ளது. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.';
     }
+  }
+
+  Future<String> sendMessage(
+    String userMessage, {
+    List> history = const [],
+  }) {
+    return askPasD(userMessage, history: history);
+  }
+
+  static Future<String> getResponse(String userMessage) {
+    return askPasD(userMessage);
   }
 }
