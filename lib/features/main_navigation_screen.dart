@@ -13,9 +13,17 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
+  static const Map<String, dynamic> _defaultBook = {
+    'id': 1,
+    'name_ta': 'ஆதியாகமம்',
+    'name_en': 'Genesis',
+    'testament': 'OT',
+    'chapters_count': 50,
+  };
+
   final List<Widget> _screens = [
     const HomeScreen(),
-    const BibleReadingScreen(),
+    const BibleReadingScreen(book: _defaultBook),
     const PasDScreen(),
     const _ComingSoonScreen(
       title: 'Holy Community',
