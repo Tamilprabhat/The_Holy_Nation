@@ -1,8 +1,8 @@
-name: Build Android APK
+name: Build The Holy Nation APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -10,39 +10,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build Bilingual Bible SQLite Database
+        run: |
+          mkdir -p assets
+          if [ -f "build_db.py" ]; then
+            python3 build_db.py
+          fi
+
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.0'
           channel: 'stable'
-          cache: true
 
-      - name: Generate Android Project
+      - name: Create Android Project Files if Missing
         run: |
-          flutter create --org com.theholynation --project-name the_holy_nation .
-          git checkout HEAD -- lib pubspec.yaml || true
+          if [ ! -d "android" ]; then
+            flutter create --org com.holynation --project-name the_holy_nation --platforms=android .
+          fi
 
-      - name: Build Real Bible Database
-        run: python3 build_db.py
-
-      - name: Get Dependencies
+      - name: Get Flutter Dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: |
-          flutter build apk --release --config-only
-          cd android && ./gradlew assembleRelease -x lintVitalAnalyzeRelease
+      - name: Build Release APK
+        run: flutter build apk --release --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: The-Holy-Nation-Release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
