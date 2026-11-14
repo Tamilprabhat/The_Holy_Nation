@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 class PasDService {
   static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
 
-  static const List<String> _models = [
+  static const List _models = [
     'gemini-2.5-flash',
     'gemini-2.5-flash-lite',
     'gemini-2.0-flash',
