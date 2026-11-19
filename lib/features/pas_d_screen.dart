@@ -68,7 +68,7 @@ class _PasDScreenState extends State<PasDScreen> {
     final text = (customText ?? _controller.text).trim();
     if (text.isEmpty || _isLoading) return;
 
-    final List> history = _messages
+    final history = _messages
         .skip(1)
         .map((m) => {
               'role': m.isUser ? 'user' : 'model',
