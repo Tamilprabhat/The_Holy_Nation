@@ -13,9 +13,9 @@ class PasDService {
 4. பதில்களைச் சுருக்கமாகவும், வாசிக்க எளிதாகவும் பத்திகளாகப் பிரித்துத் தரவும்.
 ''';
 
-  static Future<String> askPasD(
+  static Future askPasD(
     String userMessage, {
-    List<dynamic> history = const [],
+    List history = const [],
   }) async {
     if (_apiKey.isEmpty) {
       return "API Key அமைக்கப்படவில்லை. GitHub Secrets-இல் GEMINI_API_KEY உள்ளதா எனச் சரிபார்க்கவும்.";
@@ -29,7 +29,7 @@ class PasDService {
           'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$_apiKey',
         );
 
-        final List> contents = [];
+        final contents = [];
 
         for (final item in history) {
           if (item is Map) {
@@ -74,10 +74,11 @@ class PasDService {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final candidates = data['candidates'] as List?;
-          if (candidates != null && candidates.isNotEmpty) {
-            final parts = candidates[0]['content']?['parts'] as List?;
-            if (parts != null && parts.isNotEmpty) {
+          final candidates = data['candidates'];
+          if (candidates is List && candidates.isNotEmpty) {
+            final content = candidates[0]['content'];
+            final parts = content != null ? content['parts'] : null;
+            if (parts is List && parts.isNotEmpty) {
               final replyText = parts[0]['text']?.toString().trim();
               if (replyText != null && replyText.isNotEmpty) {
                 return replyText;
@@ -86,7 +87,6 @@ class PasDService {
           }
           return "பதில் பெற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.";
         } else if (response.statusCode == 404) {
-          // அடுத்த மாடலுக்குத் தானாக மாறும்
           continue;
         } else if (response.statusCode == 400 || response.statusCode == 403) {
           return "API Key பிழை (${response.statusCode}). உங்கள் GEMINI_API_KEY சரியானதா எனச் சரிபார்க்கவும்.";
