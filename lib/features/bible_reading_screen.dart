@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/local/database_helper.dart';
+import 'bible_search_screen.dart';
+import 'bookmarks_screen.dart';
 
 class BibleReadingScreen extends StatefulWidget {
   final dynamic book;
@@ -24,6 +26,7 @@ class _BibleReadingScreenState extends State {
 
   dynamic _currentBook;
   late int _selectedChapter;
+  int? _activeHighlightVerse;
   int _totalChapters = 1;
   bool _isLoading = true;
   bool _isTamilPrimary = true;
@@ -46,6 +49,7 @@ class _BibleReadingScreenState extends State {
     super.initState();
     _currentBook = _screen.book;
     _selectedChapter = _screen.initialChapter;
+    _activeHighlightVerse = _screen.highlightVerse;
     _scrollController.addListener(_onScroll);
     _initData();
   }
@@ -196,12 +200,33 @@ class _BibleReadingScreenState extends State {
       setState(() {
         _currentBook = selectedBook;
         _selectedChapter = 1;
+        _activeHighlightVerse = null;
         _totalChapters =
             count > 0 ? count : (selectedBook['chapters_count'] ?? 1);
         _showBookList = false;
       });
     }
     _loadVerses();
+  }
+
+  Future _openSearchScreen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const BibleSearchScreen()),
+    );
+    if (!_showBookList) {
+      _loadVerses();
+    }
+  }
+
+  Future _openBookmarksScreen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const BookmarksScreen()),
+    );
+    if (!_showBookList) {
+      _loadVerses();
+    }
   }
 
   Future _onToggleBookmark(int verseNum) async {
@@ -272,15 +297,26 @@ class _BibleReadingScreenState extends State {
                 )
               : null,
           title: const Text(
-            'பரிசுத்த வேதாகமம் (66 புத்தகங்கள்)',
+            'பரிசுத்த வேதாகமம்',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 17,
             ),
           ),
-          centerTitle: true,
+          centerTitle: false,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.search_rounded, color: Colors.white),
+              tooltip: 'வசனங்களைத் தேடுக',
+              onPressed: _openSearchScreen,
+            ),
+            IconButton(
+              icon: const Icon(Icons.bookmarks_rounded,
+                  color: Colors.amberAccent),
+              tooltip: 'புக்மார்க்குகள்',
+              onPressed: _openBookmarksScreen,
+            ),
             InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: () {
@@ -290,7 +326,7 @@ class _BibleReadingScreenState extends State {
               },
               child: Container(
                 margin:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -300,8 +336,8 @@ class _BibleReadingScreenState extends State {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.translate, size: 16, color: Colors.white),
-                    const SizedBox(width: 5),
+                    const Icon(Icons.translate, size: 15, color: Colors.white),
+                    const SizedBox(width: 4),
                     Text(
                       _isTamilPrimary ? 'TA' : 'EN',
                       style: const TextStyle(
@@ -456,12 +492,15 @@ class _BibleReadingScreenState extends State {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '$bookName ($_selectedChapter)',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontSize: 18,
+              Flexible(
+                child: Text(
+                  '$bookName ($_selectedChapter)',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 17,
+                  ),
                 ),
               ),
               const SizedBox(width: 4),
@@ -471,6 +510,18 @@ class _BibleReadingScreenState extends State {
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search_rounded,
+                color: Colors.white, size: 20),
+            tooltip: 'தேடுக',
+            onPressed: _openSearchScreen,
+          ),
+          IconButton(
+            icon: const Icon(Icons.bookmarks_rounded,
+                color: Colors.amberAccent, size: 20),
+            tooltip: 'புக்மார்க்குகள்',
+            onPressed: _openBookmarksScreen,
+          ),
           InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () {
@@ -479,8 +530,8 @@ class _BibleReadingScreenState extends State {
               });
             },
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
               decoration: BoxDecoration(
                 color: const Color(0xFF262A3B),
                 borderRadius: BorderRadius.circular(20),
@@ -488,8 +539,8 @@ class _BibleReadingScreenState extends State {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.translate, size: 16, color: Colors.white),
-                  const SizedBox(width: 5),
+                  const Icon(Icons.translate, size: 15, color: Colors.white),
+                  const SizedBox(width: 4),
                   Text(
                     _isTamilPrimary ? 'TA' : 'EN',
                     style: const TextStyle(
@@ -520,7 +571,10 @@ class _BibleReadingScreenState extends State {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(8),
                     onTap: () {
-                      setState(() => _selectedChapter = ch);
+                      setState(() {
+                        _selectedChapter = ch;
+                        _activeHighlightVerse = null;
+                      });
                       _loadVerses();
                     },
                     child: Container(
@@ -632,8 +686,7 @@ class _BibleReadingScreenState extends State {
                           final isBookmarked =
                               _bookmarkedVerses.contains(verseNum);
                           final isHighlighted =
-                              _screen.highlightVerse == verseNum &&
-                                  _selectedChapter == _screen.initialChapter;
+                              _activeHighlightVerse == verseNum;
 
                           return Container(
                             padding: isHighlighted
