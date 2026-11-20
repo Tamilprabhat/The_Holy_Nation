@@ -9,13 +9,13 @@ class DatabaseHelper {
 
   DatabaseHelper._init();
 
-  Future<Database> get database async {
+  Future get database async {
     if (_database != null) return _database!;
     _database = await _initDB('holy_nation.db');
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
+  Future _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
@@ -27,9 +27,9 @@ class DatabaseHelper {
       } catch (_) {}
 
       ByteData data = await rootBundle.load('assets/$filePath');
-      List<int> bytes =
+      List bytes =
           data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-      await File(path).writeAsBytes(bytes, flush: true);
+      await File(path).writeAsBytes(bytes.cast<int>(), flush: true);
     }
 
     final db = await openDatabase(path);
@@ -37,7 +37,7 @@ class DatabaseHelper {
     return db;
   }
 
-  Future<void> _ensureExtraTables(Database db) async {
+  Future _ensureExtraTables(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,9 +111,9 @@ class DatabaseHelper {
       )
     ''');
 
-    // இரட்டைப் பதிவுகள் இருந்தால் சுத்தம் செய்தல்
+    // இரட்டை பதிவுகள் இருந்தால் சுத்தம் செய்தல்
     await db.execute('''
-      DELETE FROM topic_messages 
+      DELETE FROM topic_messages
       WHERE id NOT IN (
         SELECT MIN(id) FROM topic_messages GROUP BY topic_key, author_name, message_text
       )
@@ -145,14 +145,14 @@ class DatabaseHelper {
         'ref_title': 'யோசுவா (Joshua) 1:9',
         'verse_text':
             'பலங்கொண்டு திடமனதாயிரு; திகையாதே, கலங்காதே, நீ போகும் இடமெல்லாம் உன் தேவனாகிய கர்த்தர் உன்னோடே இருக்கிறார்.',
-        'author_name': 'எஸ்தர் (Esther)',
-        'bg_color': 0xFF2B2144,
+        'author_name': 'யோசுவா (Joshua)',
+        'bg_color': 0xFF283593,
         'image_path': null,
         'font_size': 14.0,
         'text_color': 0xFFFFFFFF,
         'text_align_pos': 'center',
         'hide_text': 0,
-        'likes_count': 35,
+        'likes_count': 36,
         'is_liked': 0,
         'created_at': now,
       });
@@ -162,7 +162,7 @@ class DatabaseHelper {
         'verse_text':
             'என்னைப் பெலப்படுத்துகிற கிறிஸ்துவினாலே எல்லாவற்றையுஞ்செய்ய எனக்குப் பெலனுண்டு.',
         'author_name': 'தாவீது (David)',
-        'bg_color': 0xFF1B363D,
+        'bg_color': 0xFF1B4332,
         'image_path': null,
         'font_size': 14.0,
         'text_color': 0xFFFFFFFF,
@@ -196,17 +196,17 @@ class DatabaseHelper {
     if (msgCount == 0) {
       final now = DateTime.now().toIso8601String();
       await db.insert('topic_messages', {
-        'topic_key': '#அன்பு (Love)',
+        'topic_key': 'அன்பு (Love)',
         'author_name': 'யோவான் (John)',
         'message_text':
-            'அன்பில்லாதவன் தேவனை அறியான்; தேவன் அன்பாகவே இருக்கிறார். ஒருவரிலொருவர் அன்புகூருவதே கிறிஸ்துவின் பிரமாணம்.',
+            'அன்பில்லாதவன் தேவனை அறியான்; தேவன் அன்பாகவே இருக்கிறார். ஒருவரிலொருவர் அன்புகூருவதே கிறிஸ்தவ ஜீவியத்தின் அடையாளம்.',
         'verse_ref': '1 யோவான் 4:8',
         'likes_count': 142,
         'is_liked': 0,
         'created_at': now,
       });
       await db.insert('topic_messages', {
-        'topic_key': '#அன்பு (Love)',
+        'topic_key': 'அன்பு (Love)',
         'author_name': 'மரியாள் (Mary)',
         'message_text':
             'மன்னிக்கும் இருதயம் உள்ள இடத்தில் தேவனுடைய அன்பு பரிபூரணமாக வெளிப்படும்.',
@@ -216,7 +216,7 @@ class DatabaseHelper {
         'created_at': now,
       });
       await db.insert('topic_messages', {
-        'topic_key': '#விசுவாசம் (Faith)',
+        'topic_key': 'விசுவாசம் (Faith)',
         'author_name': 'பேதுரு (Peter)',
         'message_text':
             'சூழ்நிலைகள் எதிராக இருந்தாலும், வாக்குத்தத்தம் பண்ணினவர் உண்மையுள்ளவர் என்று விசுவாசிக்கும்போது அற்புதங்கள் நடக்கும்.',
@@ -226,7 +226,7 @@ class DatabaseHelper {
         'created_at': now,
       });
       await db.insert('topic_messages', {
-        'topic_key': '#ஜெபம் (Prayer)',
+        'topic_key': 'ஜெபம் (Prayer)',
         'author_name': 'அன்னாள் (Hannah)',
         'message_text':
             'கண்ணீரோடு ஏறெடுக்கப்படும் எந்த ஜெபத்தையும் தேவன் மறப்பதில்லை; ஏற்ற வேளையில் நிச்சயம் பதிலளிப்பார்.',
@@ -236,10 +236,10 @@ class DatabaseHelper {
         'created_at': now,
       });
       await db.insert('topic_messages', {
-        'topic_key': '#சமாதானம் (Peace)',
+        'topic_key': 'சமாதானம் (Peace)',
         'author_name': 'பவுல் (Paul)',
         'message_text':
-            'எல்லாப் புத்திக்கும் மேலான தேவசமாதானம் உங்கள் இருதயங்களையும் சிந்தைகளையும் கிறிஸ்து இயேசுவுக்குள் காத்துக்கொள்ளும்.',
+            'எல்லாப் புத்திக்கும் மேலான தேவசமாதானம் உங்கள் இருதயங்களையும் சிந்தைகளையும் கிறிஸ்து இயேசுவுக்குள்ளாகக் காத்துக்கொள்ளும்.',
         'verse_ref': 'பிலிப்பியர் 4:7',
         'likes_count': 84,
         'is_liked': 0,
@@ -248,12 +248,12 @@ class DatabaseHelper {
     }
   }
 
-  Future<List> getAllBooks() async {
+  Future getAllBooks() async {
     final db = await instance.database;
     return await db.query('books', orderBy: 'id ASC');
   }
 
-  Future<int> getChapterCount(int bookId) async {
+  Future getChapterCount(int bookId) async {
     final db = await instance.database;
     final result = await db.rawQuery(
       'SELECT MAX(chapter) as max_chapter FROM verses WHERE book_id = ?',
@@ -265,7 +265,7 @@ class DatabaseHelper {
     return 1;
   }
 
-  Future<List> getVerses(int bookId, int chapter) async {
+  Future getVerses(int bookId, int chapter) async {
     final db = await instance.database;
     return await db.query(
       'verses',
@@ -275,7 +275,7 @@ class DatabaseHelper {
     );
   }
 
-  Future<dynamic> getSingleVerse(int bookId, int chapter, int verse) async {
+  Future getSingleVerse(int bookId, int chapter, int verse) async {
     final db = await instance.database;
     final rows = await db.rawQuery('''
       SELECT v.book_id, v.chapter, v.verse, v.text_ta, v.text_en,
@@ -288,7 +288,7 @@ class DatabaseHelper {
     return rows.isNotEmpty ? rows.first : null;
   }
 
-  Future<bool> isChapterAlreadyRead(int bookId, int chapter) async {
+  Future isChapterAlreadyRead(int bookId, int chapter) async {
     final db = await instance.database;
     final rows = await db.query(
       'reading_progress',
@@ -298,7 +298,7 @@ class DatabaseHelper {
     return rows.isNotEmpty;
   }
 
-  Future<void> recordChapterRead(int bookId, int chapter) async {
+  Future recordChapterRead(int bookId, int chapter) async {
     final db = await instance.database;
     await db.insert(
       'reading_progress',
@@ -311,7 +311,7 @@ class DatabaseHelper {
     );
   }
 
-  Future<dynamic> getReadingSummary() async {
+  Future getReadingSummary() async {
     final db = await instance.database;
     final totalRes =
         await db.rawQuery('SELECT COUNT(*) as cnt FROM reading_progress');
@@ -332,7 +332,7 @@ class DatabaseHelper {
     };
   }
 
-  Future<List> getPostersByCategory(String category) async {
+  Future getPostersByCategory(String category) async {
     final db = await instance.database;
     return await db.query(
       'user_posters',
@@ -342,7 +342,7 @@ class DatabaseHelper {
     );
   }
 
-  Future<int> addUserPoster({
+  Future addUserPoster({
     required String category,
     required String refTitle,
     required String verseText,
@@ -372,7 +372,7 @@ class DatabaseHelper {
     });
   }
 
-  Future<void> togglePosterLike(int id, int currentLikes, int isLiked) async {
+  Future togglePosterLike(int id, int currentLikes, int isLiked) async {
     final db = await instance.database;
     final bool nextLiked = isLiked == 0;
     final int nextCount =
@@ -385,7 +385,7 @@ class DatabaseHelper {
     );
   }
 
-  Future<List> getTopicMessages(String topicKey) async {
+  Future getTopicMessages(String topicKey) async {
     final db = await instance.database;
     return await db.query(
       'topic_messages',
@@ -395,7 +395,7 @@ class DatabaseHelper {
     );
   }
 
-  Future<int> addTopicMessage({
+  Future addTopicMessage({
     required String topicKey,
     required String authorName,
     required String messageText,
@@ -413,7 +413,7 @@ class DatabaseHelper {
     });
   }
 
-  Future<void> toggleTopicMessageLike(
+  Future toggleTopicMessageLike(
       int id, int currentLikes, int isLiked) async {
     final db = await instance.database;
     final bool nextLiked = isLiked == 0;
@@ -427,23 +427,22 @@ class DatabaseHelper {
     );
   }
 
-  Future<List> searchVerses(String keyword) async {
+  Future searchVerses(String keyword) async {
     final clean = keyword.trim();
     if (clean.isEmpty) return [];
     final db = await instance.database;
     return await db.rawQuery('''
-      SELECT 
+      SELECT
         v.book_id, v.chapter, v.verse, v.text_ta, v.text_en,
         b.name_ta, b.name_en, b.testament, b.chapters_count
       FROM verses v
       INNER JOIN books b ON v.book_id = b.id
       WHERE v.text_ta LIKE ? OR v.text_en LIKE ?
       ORDER BY v.book_id ASC, v.chapter ASC, v.verse ASC
-      LIMIT 100
-    ''', ['%$clean\%', '\%$clean%']);
+    ''', ['%$clean%', '%$clean%']);
   }
 
-  Future<Set> getBookmarkedVerseNumbers(int bookId, int chapter) async {
+  Future getBookmarkedVerseNumbers(int bookId, int chapter) async {
     final db = await instance.database;
     final rows = await db.query(
       'bookmarks',
@@ -454,7 +453,7 @@ class DatabaseHelper {
     return rows.map((r) => r['verse'] as int).toSet();
   }
 
-  Future<bool> toggleBookmark(int bookId, int chapter, int verse) async {
+  Future toggleBookmark(int bookId, int chapter, int verse) async {
     final db = await instance.database;
     final existing = await db.query(
       'bookmarks',
@@ -480,14 +479,14 @@ class DatabaseHelper {
     }
   }
 
-  Future<List> getAllBookmarks() async {
+  Future getAllBookmarks() async {
     final db = await instance.database;
     return await db.rawQuery('''
-      SELECT 
+      SELECT
         bm.id as bookmark_id, bm.book_id, bm.chapter, bm.verse,
         v.text_ta, v.text_en, b.name_ta, b.name_en, b.testament, b.chapters_count
       FROM bookmarks bm
-      INNER JOIN verses v 
+      INNER JOIN verses v
         ON bm.book_id = v.book_id AND bm.chapter = v.chapter AND bm.verse = v.verse
       INNER JOIN books b ON bm.book_id = b.id
       ORDER BY bm.id DESC
