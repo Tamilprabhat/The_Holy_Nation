@@ -22,10 +22,11 @@ class PasDService {
       return "API Key அமைக்கப்படவில்லை. GitHub Secrets-இல் GEMINI_API_KEY உள்ளதா எனச் சரிபார்க்கவும்.";
     }
 
-    final modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
+    final modelsToTry = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
     String lastErrorDetail = '';
 
     for (final model in modelsToTry) {
+      final client = http.Client();
       try {
         final uri = Uri.parse(
           'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$_apiKey',
@@ -55,10 +56,13 @@ class PasDService {
           ],
         });
 
-        final response = await http
+        final response = await client
             .post(
               uri,
-              headers: {'Content-Type': 'application/json'},
+              headers: {
+                'Content-Type': 'application/json',
+                'Connection': 'close',
+              },
               body: jsonEncode({
                 'systemInstruction': {
                   'parts': [
@@ -68,11 +72,12 @@ class PasDService {
                 'contents': contents,
                 'generationConfig': {
                   'temperature': 0.7,
-                  'maxOutputTokens': 1024,
+                  'maxOutputTokens': 800,
+                  'thinkingConfig': {'thinkingBudget': 0},
                 },
               }),
             )
-            .timeout(const Duration(seconds: 45));
+            .timeout(const Duration(seconds: 25));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -96,16 +101,19 @@ class PasDService {
           } catch (_) {
             lastErrorDetail = '${response.statusCode}';
           }
-          if (response.statusCode == 404) {
+          if (response.statusCode == 404 || response.statusCode == 400) {
             continue;
           }
-          return "API பிழை (${response.statusCode}):$lastErrorDetail";
+          return "API பிழை (${response.statusCode}): $lastErrorDetail";
         }
       } catch (e) {
-        return "இணையத் தொடர்புப் பிழை: $e";
+        lastErrorDetail = e.toString();
+        continue;
+      } finally {
+        client.close();
       }
     }
 
-    return "AI சேவையைத் தொடர்பு கொள்ள முடியவில்லை (404): $lastErrorDetail";
+    return "தொடர்புப் பிழை: உங்கள் மொபைல் நெட்வொர்க் அல்லது API இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.\n($lastErrorDetail)";
   }
 }
