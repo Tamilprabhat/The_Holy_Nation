@@ -191,7 +191,10 @@ class _HomeScreenState extends State {
       appBar: AppBar(
         backgroundColor: cardDark,
         elevation: 0,
+        centerTitle: true,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(6),
@@ -207,7 +210,7 @@ class _HomeScreenState extends State {
             ),
             const SizedBox(width: 10),
             const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   'THE HOLY NATION',
@@ -215,7 +218,7 @@ class _HomeScreenState extends State {
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0,
+                    letterSpacing: 1.2,
                   ),
                 ),
                 Text(
