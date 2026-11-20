@@ -16,18 +16,22 @@ class BibleReadingScreen extends StatefulWidget {
   });
 
   @override
-  State<BibleReadingScreen> createState() => _BibleReadingScreenState();
+  State createState() => _BibleReadingScreenState();
 }
 
-class _BibleReadingScreenState extends State<BibleReadingScreen> {
+class _BibleReadingScreenState extends State {
+  dynamic _currentBook;
   late int _selectedChapter;
   int _totalChapters = 1;
   bool _isLoading = true;
   bool _isTamilPrimary = true;
+  bool _showBookList = true;
+  bool _isPushedRoute = false;
+  bool _routeChecked = false;
+  List _books = [];
   List _verses = [];
   Set _bookmarkedVerses = {};
 
-  // நியாயமான வாசிப்புக் கண்காணிப்பு (Smart Reading Mode)
   final ScrollController _scrollController = ScrollController();
   Timer? _readingTimer;
   int _secondsSpent = 0;
@@ -38,9 +42,24 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
   @override
   void initState() {
     super.initState();
+    _currentBook = widget.book;
     _selectedChapter = widget.initialChapter;
     _scrollController.addListener(_onScroll);
     _initData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_routeChecked) {
+      _routeChecked = true;
+      _isPushedRoute = ModalRoute.of(context)?.canPop ?? false;
+      if (_isPushedRoute || widget.highlightVerse != null) {
+        _showBookList = false;
+      } else {
+        _showBookList = true;
+      }
+    }
   }
 
   @override
@@ -51,7 +70,9 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients || _isChapterCounted) return;
+    if (!_scrollController.hasClients || _isChapterCounted || _showBookList) {
+      return;
+    }
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.offset;
 
@@ -63,6 +84,7 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
         _maxScrollRatio = ratio;
       }
     }
+
     _evaluateReadingCompletion();
   }
 
@@ -72,13 +94,12 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
     _maxScrollRatio = 0.0;
     _isChapterCounted = alreadyRead;
 
-    // வசனங்களின் எண்ணிக்கைக்கு ஏற்ப குறைந்தபட்ச வாசிப்பு நேரம் (12 - 40 வினாடிகள்)
+    if (_showBookList || alreadyRead) return;
+
     _requiredSeconds = (verseCount * 0.7).round().clamp(12, 40);
 
-    if (alreadyRead) return;
-
     _readingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
+      if (!mounted || _showBookList) {
         timer.cancel();
         return;
       }
@@ -86,7 +107,6 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
         _secondsSpent++;
       });
 
-      // சிறிய அதிகாரம் (ஸ்க்ரோல் இல்லாதது) எனில் நேரம் முடிந்ததும் 100% ஆகும்
       if (_scrollController.hasClients &&
           _scrollController.position.maxScrollExtent <= 20) {
         _maxScrollRatio = 1.0;
@@ -96,23 +116,23 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
     });
   }
 
-  Future<void> _evaluateReadingCompletion() async {
-    if (_isChapterCounted) return;
-    // 1. குறைந்தபட்ச நேரம் செலவிட்டிருக்க வேண்டும் AND 2. 85% மேல் ஸ்க்ரோல் செய்திருக்க வேண்டும்
+  Future _evaluateReadingCompletion() async {
+    if (_isChapterCounted || _showBookList) return;
     if (_secondsSpent >= _requiredSeconds && _maxScrollRatio >= 0.85) {
       _isChapterCounted = true;
       _readingTimer?.cancel();
       await DatabaseHelper.instance.recordChapterRead(
-        widget.book['id'],
+        _currentBook['id'],
         _selectedChapter,
       );
       if (mounted) {
         setState(() {});
+        final bName = _currentBook['name_ta'] ?? _currentBook['name'] ?? '';
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '✓ ${widget.book['name_ta']} அதிகாரம் $_selectedChapter முழுமையாக வாசித்ததாகப் பதியப்பட்டது!',
+              '✓ $bName அதிகாரம் $_selectedChapter முழுமையாக வாசித்ததாகப் பதியப்பட்டது!',
             ),
             duration: const Duration(seconds: 2),
             backgroundColor: Colors.teal.shade800,
@@ -122,50 +142,69 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
     }
   }
 
-  Future<void> _initData() async {
+  Future _initData() async {
+    final allBooks = await DatabaseHelper.instance.getAllBooks();
     final count =
-        await DatabaseHelper.instance.getChapterCount(widget.book['id']);
+        await DatabaseHelper.instance.getChapterCount(_currentBook['id']);
     if (mounted) {
       setState(() {
+        _books = allBooks;
         _totalChapters =
-            count > 0 ? count : (widget.book['chapters_count'] ?? 1);
+            count > 0 ? count : (_currentBook['chapters_count'] ?? 1);
       });
     }
     _loadVerses();
   }
 
-  Future<void> _loadVerses() async {
+  Future _loadVerses() async {
     setState(() => _isLoading = true);
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
 
     final alreadyRead = await DatabaseHelper.instance.isChapterAlreadyRead(
-      widget.book['id'],
+      _currentBook['id'],
       _selectedChapter,
     );
     final data = await DatabaseHelper.instance.getVerses(
-      widget.book['id'],
+      _currentBook['id'],
       _selectedChapter,
     );
-    final bookmarks = await DatabaseHelper.instance.getBookmarkedVerseNumbers(
-      widget.book['id'],
+    final bookmarks =
+        await DatabaseHelper.instance.getBookmarkedVerseNumbers(
+      _currentBook['id'],
       _selectedChapter,
     );
 
     if (mounted) {
       setState(() {
         _verses = data;
-        _bookmarkedVerses = bookmarks;
+        _bookmarkedVerses = Set.from(bookmarks);
         _isLoading = false;
       });
       _startReadingTracker(data.length, alreadyRead);
     }
   }
 
-  Future<void> _onToggleBookmark(int verseNum) async {
+  Future _selectBook(dynamic selectedBook) async {
+    _readingTimer?.cancel();
+    final count =
+        await DatabaseHelper.instance.getChapterCount(selectedBook['id']);
+    if (mounted) {
+      setState(() {
+        _currentBook = selectedBook;
+        _selectedChapter = 1;
+        _totalChapters =
+            count > 0 ? count : (selectedBook['chapters_count'] ?? 1);
+        _showBookList = false;
+      });
+    }
+    _loadVerses();
+  }
+
+  Future _onToggleBookmark(int verseNum) async {
     final added = await DatabaseHelper.instance.toggleBookmark(
-      widget.book['id'],
+      _currentBook['id'],
       _selectedChapter,
       verseNum,
     );
@@ -186,20 +225,20 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
               : 'புக்மார்க் நீக்கப்பட்டது',
         ),
         duration: const Duration(seconds: 1),
-        backgroundColor: const Color(0xFF2C3E6B),
+        backgroundColor: Colors.indigo.shade700,
       ),
     );
   }
 
   void _copyVerse(dynamic verse) {
-    final nameTa = widget.book['name_ta'] ?? '';
-    final nameEn = widget.book['name_en'] ?? '';
+    final bookTa = _currentBook['name_ta'] ?? _currentBook['name'] ?? '';
+    final bookEn = _currentBook['name_en'] ?? '';
     final vNum = verse['verse'];
-    final ta = verse['text_ta'] ?? '';
+    final ta = verse['text_ta'] ?? verse['text'] ?? '';
     final en = verse['text_en'] ?? '';
 
     final formatted =
-        '$nameTa ($nameEn) $_selectedChapter:$vNum\n\n$ta\n\n$en\n\n— THE HOLY NATION';
+        '$bookTa ($bookEn) $_selectedChapter:$vNum\n$ta\n$en\n— THE HOLY NATION';
 
     Clipboard.setData(ClipboardData(text: formatted));
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -212,11 +251,182 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
     );
   }
 
+  Widget _buildBookSelectionView() {
+    final oldTestament = _books.where((b) => (b['id'] ?? 0) <= 39).toList();
+    final newTestament = _books.where((b) => (b['id'] ?? 0) > 39).toList();
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF12141D),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF181A24),
+          elevation: 0,
+          automaticallyImplyLeading: _isPushedRoute,
+          leading: _isPushedRoute
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                )
+              : null,
+          title: const Text(
+            'பரிசுத்த வேதாகமம் (66 புத்தகங்கள்)',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+          centerTitle: true,
+          actions: [
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                setState(() {
+                  _isTamilPrimary = !_isTamilPrimary;
+                });
+              },
+              child: Container(
+                margin:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF262A3B),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.indigoAccent),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.translate, size: 16, color: Colors.white),
+                    const SizedBox(width: 5),
+                    Text(
+                      _isTamilPrimary ? 'TA' : 'EN',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          bottom: const TabBar(
+            indicatorColor: Colors.indigoAccent,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white54,
+            tabs: [
+              Tab(text: 'பழைய ஏற்பாடு (39)'),
+              Tab(text: 'புதிய ஏற்பாடு (27)'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildBookGrid(oldTestament),
+            _buildBookGrid(newTestament),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookGrid(List bookList) {
+    if (bookList.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.indigoAccent),
+      );
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.all(14),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 2.3,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      itemCount: bookList.length,
+      itemBuilder: (context, index) {
+        final book = bookList[index];
+        final nameTa = book['name_ta'] ?? book['name'] ?? '';
+        final nameEn = book['name_en'] ?? '';
+        final chaptersCount = book['chapters_count'] ?? '';
+
+        return InkWell(
+          onTap: () => _selectBook(book),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E212D),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _isTamilPrimary ? nameTa : nameEn,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _isTamilPrimary
+                      ? '$nameEn • $chaptersCount அதி.'
+                      : '$nameTa • $chaptersCount Ch.',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleBackFromReading() {
+    _readingTimer?.cancel();
+    if (_isPushedRoute) {
+      Navigator.pop(context);
+    } else {
+      setState(() {
+        _showBookList = true;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _isPushedRoute && !_showBookList,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (!_showBookList) {
+          _handleBackFromReading();
+        }
+      },
+      child: _showBookList ? _buildBookSelectionView() : _buildReadingView(),
+    );
+  }
+
+  Widget _buildReadingView() {
     final bookName = _isTamilPrimary
-        ? (widget.book['name_ta'] ?? widget.book['name'] ?? '')
-        : (widget.book['name_en'] ?? widget.book['name_ta'] ?? '');
+        ? (_currentBook['name_ta'] ?? _currentBook['name'] ?? '')
+        : (_currentBook['name_en'] ?? _currentBook['name_ta'] ?? '');
 
     final double timeProgress =
         (_secondsSpent / _requiredSeconds).clamp(0.0, 1.0);
@@ -231,14 +441,30 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          tooltip: 'புத்தகங்களைத் தேர்ந்தெடுக்க',
+          onPressed: _handleBackFromReading,
         ),
-        title: Text(
-          '$bookName ($_selectedChapter)',
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontSize: 18,
+        title: InkWell(
+          onTap: () {
+            _readingTimer?.cancel();
+            setState(() {
+              _showBookList = true;
+            });
+          },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$bookName ($_selectedChapter)',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
+            ],
           ),
         ),
         centerTitle: true,
@@ -254,7 +480,7 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
               margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF2C3E6B),
+                color: const Color(0xFF262A3B),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.indigoAccent),
               ),
@@ -267,7 +493,7 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -300,8 +526,8 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? const Color(0xFF2C3E6B)
-                            : const Color(0xFF1C1E2A),
+                            ? const Color(0xFF3E50B5)
+                            : const Color(0xFF1E212D),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isSelected
@@ -333,11 +559,9 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
               },
             ),
           ),
-
-          // நியாயமான வாசிப்பு நிலை காட்டி (Bible Reading Mode Bar)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            color: const Color(0xFF161822),
+            color: const Color(0xFF1A1D29),
             child: Row(
               children: [
                 Icon(
@@ -353,7 +577,7 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                 Expanded(
                   child: Text(
                     _isChapterCounted
-                        ? 'வாசிப்பு நிறைவடைந்தது (Counted)'
+                        ? 'வாசிப்பு பதியப்பட்டது (Counted)'
                         : 'வாசிப்பு முறை: பொறுமையாக முழு அதிகாரத்தையும் வாசியுங்கள் (${(combinedProgress * 100).round()}%)',
                     style: TextStyle(
                       color: _isChapterCounted
@@ -370,16 +594,14 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
             value: combinedProgress,
             minHeight: 2.5,
             backgroundColor: Colors.white10,
-            valueColor: AlwaysStoppedAnimation<Color>(
+            valueColor: AlwaysStoppedAnimation(
               _isChapterCounted ? Colors.tealAccent : Colors.indigoAccent,
             ),
           ),
-
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child:
-                        CircularProgressIndicator(color: Colors.indigoAccent),
+                    child: CircularProgressIndicator(color: Colors.indigoAccent),
                   )
                 : _verses.isEmpty
                     ? const Center(
@@ -401,7 +623,8 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                               verse['text_ta'] ?? verse['text'] ?? '';
                           final enText = verse['text_en'] ?? '';
 
-                          final primaryText = _isTamilPrimary ? taText : enText;
+                          final primaryText =
+                              _isTamilPrimary ? taText : enText;
                           final secondaryText =
                               _isTamilPrimary ? enText : taText;
                           final isBookmarked =
@@ -416,11 +639,13 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                                 : EdgeInsets.zero,
                             decoration: isHighlighted
                                 ? BoxDecoration(
-                                    color: Colors.indigo.withValues(alpha: 0.18),
+                                    color: Colors.indigo
+                                        .withValues(alpha: 0.18),
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                        color: Colors.indigoAccent
-                                            .withValues(alpha: 0.5)),
+                                      color: Colors.indigoAccent
+                                          .withValues(alpha: 0.5),
+                                    ),
                                   )
                                 : null,
                             child: Column(
@@ -436,7 +661,7 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                                   ),
                                 ),
                                 if (secondaryText.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 5),
                                   Text(
                                     secondaryText,
                                     style: TextStyle(
@@ -458,7 +683,9 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                                       borderRadius: BorderRadius.circular(20),
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
                                         child: Icon(
                                           isBookmarked
                                               ? Icons.bookmark
@@ -476,7 +703,9 @@ class _BibleReadingScreenState extends State<BibleReadingScreen> {
                                       borderRadius: BorderRadius.circular(20),
                                       child: const Padding(
                                         padding: EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
                                         child: Icon(
                                           Icons.copy_rounded,
                                           size: 18,
