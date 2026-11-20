@@ -13,16 +13,16 @@ class PasDScreen extends StatefulWidget {
   const PasDScreen({super.key});
 
   @override
-  State<PasDScreen> createState() => _PasDScreenState();
+  State createState() => _PasDScreenState();
 }
 
-class _PasDScreenState extends State<PasDScreen> {
-  final List<ChatMessage> _messages = [];
+class _PasDScreenState extends State {
+  final List _messages = [];
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
 
-  final List<String> _quickPrompts = [
+  final List _quickPrompts = [
     "மன அமைதிக்கான வேத வசனம்",
     "பயத்தை நீக்கும் ஜெபம்",
     "மன்னிப்பைப் பற்றி வேதம் என்ன சொல்கிறது?",
@@ -64,7 +64,7 @@ class _PasDScreenState extends State<PasDScreen> {
     });
   }
 
-  Future<void> _sendMessage([String? customText]) async {
+  Future _sendMessage([String? customText]) async {
     final text = (customText ?? _controller.text).trim();
     if (text.isEmpty || _isLoading) return;
 
@@ -89,7 +89,7 @@ class _PasDScreenState extends State<PasDScreen> {
 
     if (!mounted) return;
     setState(() {
-      _messages.add(ChatMessage(text: reply, isUser: false));
+      _messages.add(ChatMessage(text: reply.toString(), isUser: false));
       _isLoading = false;
     });
     _scrollToBottom();
@@ -119,7 +119,7 @@ class _PasDScreenState extends State<PasDScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: goldAccent.withOpacity(0.15),
+                color: goldAccent.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -171,19 +171,29 @@ class _PasDScreenState extends State<PasDScreen> {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: goldAccent,
+                        Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: goldAccent,
+                            ),
                           ),
                         ),
                         SizedBox(width: 10),
-                        Text(
-                          "வேதாகம பதிலைத் தயாரிக்கிறது...",
-                          style: TextStyle(color: Colors.white60, fontSize: 13),
+                        Expanded(
+                          child: Text(
+                            "உங்களுக்கான வேதாகம பதிலை பெற சற்று நேரம் ஜெபத்தோடு காத்திருங்கள்...",
+                            style: TextStyle(
+                              color: Colors.amberAccent,
+                              fontSize: 13.5,
+                              height: 1.4,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -204,12 +214,12 @@ class _PasDScreenState extends State<PasDScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: isUser
-                          ? goldAccent.withOpacity(0.18)
+                          ? goldAccent.withValues(alpha: 0.18)
                           : cardDark,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: isUser
-                            ? goldAccent.withOpacity(0.5)
+                            ? goldAccent.withValues(alpha: 0.5)
                             : Colors.white10,
                       ),
                     ),
@@ -279,7 +289,7 @@ class _PasDScreenState extends State<PasDScreen> {
                 itemBuilder: (context, index) {
                   return ActionChip(
                     backgroundColor: cardDark,
-                    side: BorderSide(color: goldAccent.withOpacity(0.4)),
+                    side: BorderSide(color: goldAccent.withValues(alpha: 0.4)),
                     label: Text(
                       _quickPrompts[index],
                       style: const TextStyle(
