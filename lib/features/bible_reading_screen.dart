@@ -20,6 +20,8 @@ class BibleReadingScreen extends StatefulWidget {
 }
 
 class _BibleReadingScreenState extends State {
+  BibleReadingScreen get _screen => widget as BibleReadingScreen;
+
   dynamic _currentBook;
   late int _selectedChapter;
   int _totalChapters = 1;
@@ -42,8 +44,8 @@ class _BibleReadingScreenState extends State {
   @override
   void initState() {
     super.initState();
-    _currentBook = widget.book;
-    _selectedChapter = widget.initialChapter;
+    _currentBook = _screen.book;
+    _selectedChapter = _screen.initialChapter;
     _scrollController.addListener(_onScroll);
     _initData();
   }
@@ -54,7 +56,7 @@ class _BibleReadingScreenState extends State {
     if (!_routeChecked) {
       _routeChecked = true;
       _isPushedRoute = ModalRoute.of(context)?.canPop ?? false;
-      if (_isPushedRoute || widget.highlightVerse != null) {
+      if (_isPushedRoute || _screen.highlightVerse != null) {
         _showBookList = false;
       } else {
         _showBookList = true;
@@ -630,8 +632,8 @@ class _BibleReadingScreenState extends State {
                           final isBookmarked =
                               _bookmarkedVerses.contains(verseNum);
                           final isHighlighted =
-                              widget.highlightVerse == verseNum &&
-                                  _selectedChapter == widget.initialChapter;
+                              _screen.highlightVerse == verseNum &&
+                                  _selectedChapter == _screen.initialChapter;
 
                           return Container(
                             padding: isHighlighted
