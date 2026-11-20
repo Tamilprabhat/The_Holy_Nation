@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class PasDService {
-  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static String get _apiKey =>
+      const String.fromEnvironment('GEMINI_API_KEY').trim();
 
   static const String _systemPrompt = '''
 நீங்கள் "Pas D" (AI Digital Pastor) — "The Holy Nation" செயலியின் வேதாகம வழிகாட்டி.
@@ -13,6 +14,37 @@ class PasDService {
 4. பதில்களைச் சுருக்கமாகவும், வாசிக்க எளிதாகவும் பத்திகளாகப் பிரித்துத் தரவும்.
 ''';
 
+  static Future<String?> _findAvailableModel() async {
+    try {
+      final listUri = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models?key=$_apiKey',
+      );
+      final res = await http.get(listUri).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final models = data['models'];
+        if (models is List) {
+          String? fallbackModel;
+          for (final m in models) {
+            if (m is Map) {
+              final name = m['name']?.toString() ?? '';
+              final methods = m['supportedGenerationMethods'];
+              if (methods is List && methods.contains('generateContent')) {
+                final cleanName = name.replaceFirst('models/', '');
+                if (cleanName.contains('flash')) {
+                  return cleanName;
+                }
+                fallbackModel ??= cleanName;
+              }
+            }
+          }
+          return fallbackModel;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static Future askPasD(
     String userMessage, {
     List history = const [],
@@ -21,9 +53,15 @@ class PasDService {
       return "API Key அமைக்கப்படவில்லை. GitHub Secrets-இல் GEMINI_API_KEY உள்ளதா எனச் சரிபார்க்கவும்.";
     }
 
-    final models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+    final modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
+    final detectedModel = await _findAvailableModel();
+    if (detectedModel != null && !modelsToTry.contains(detectedModel)) {
+      modelsToTry.insert(0, detectedModel);
+    }
 
-    for (final model in models) {
+    String lastErrorDetail = '';
+
+    for (final model in modelsToTry) {
       try {
         final uri = Uri.parse(
           'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$_apiKey',
@@ -86,18 +124,24 @@ class PasDService {
             }
           }
           return "பதில் பெற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.";
-        } else if (response.statusCode == 404) {
-          continue;
-        } else if (response.statusCode == 400 || response.statusCode == 403) {
-          return "API Key பிழை (${response.statusCode}). உங்கள் GEMINI_API_KEY சரியானதா எனச் சரிபார்க்கவும்.";
         } else {
-          return "தொடர்புப் பிழை (${response.statusCode}). சற்று நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.";
+          try {
+            final errData = jsonDecode(response.body);
+            lastErrorDetail =
+                errData['error']?['message']?.toString() ?? '${response.statusCode}';
+          } catch (_) {
+            lastErrorDetail = '${response.statusCode}';
+          }
+          if (response.statusCode == 404) {
+            continue;
+          }
+          return "API பிழை (${response.statusCode}): $lastErrorDetail";
         }
       } catch (e) {
-        return "இணையத் தொடர்பு துண்டிக்கப்பட்டுள்ளது. உங்கள் இன்டர்நெட் இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.";
+        return "இணையத் தொடர்புப் பிழை: $e";
       }
     }
 
-    return "AI சேவையைத் தொடர்பு கொள்ள முடியவில்லை (404). சற்று நேரம் கழித்து முயற்சிக்கவும்.";
+    return "AI சேவையைத் தொடர்பு கொள்ள முடியவில்லை (404): $lastErrorDetail";
   }
 }
