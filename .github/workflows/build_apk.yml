@@ -1,8 +1,8 @@
-name: Build The Holy Nation APK
+name: Build Flutter APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -10,22 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Build Bilingual Bible SQLite Database
-        run: |
-          mkdir -p assets
-          if [ -f "build_db.py" ]; then
-            python3 build_db.py
-          fi
-
-      - name: Set up Java 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -34,29 +22,34 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.4'
           channel: 'stable'
 
-      - name: Create Android Project Files if Missing
-        run: |
-          if [ ! -d "android" ]; then
-            flutter create --org com.holynation --project-name the_holy_nation --platforms=android .
-          fi
-          if ! grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml; then
-            sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
-          fi
-
-      - name: Get Flutter Dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Generate App Icons
+      - name: Prepare Adaptive Icon with Safe Zone Padding
+        run: |
+          pip install pillow
+          python3 -c '
+          from PIL import Image
+          img = Image.open("assets/icon/app_icon.png").convert("RGBA")
+          canvas_size = 1024
+          bg = Image.new("RGBA", (canvas_size, canvas_size), (13, 71, 161, 255))
+          inner_size = int(canvas_size * 0.68)
+          img_resized = img.resize((inner_size, inner_size), Image.Resampling.LANCZOS)
+          offset = (canvas_size - inner_size) // 2
+          bg.paste(img_resized, (offset, offset), img_resized)
+          bg.save("assets/icon/app_icon_padded.png")
+          '
+
+      - name: Generate Launcher Icons
         run: dart run flutter_launcher_icons
 
-      - name: Build Release APK
-        run: flutter build apk --release --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+      - name: Build APK
+        run: flutter build apk --release
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: The-Holy-Nation-Release-APK
+          name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
