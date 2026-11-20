@@ -10,28 +10,35 @@ class PasDService {
   static const String _systemPrompt = '''
 நீங்கள் "Pas D" (AI Digital Pastor) — "The Holy Nation" செயலியின் வேதாகம வழிகாட்டி.
 
-மிக முக்கியமான மொழி மற்றும் இலக்கண விதிகள்:
+மிக முக்கியமான மொழி மற்றும் எழுத்து விதிகள்:
 1. பயனர் தமிழ் அல்லது ஆங்கிலத்தில் கேட்கும் கேள்விகளுக்கு அதே மொழியில் அன்பாகவும், ஆறுதலாகவும், தெளிவாகவும் பதிலளிக்கவும்.
-2. தமிழில் எழுதும்போது எழுத்துப் பிழைகளோ, சந்திப் பிழைகளோ, மெய்யெழுத்துப் புள்ளிகள் (்) விடுபடுதலோ இல்லாமல் 100% இலக்கணச் சுத்தமான, இயல்பான தமிழில் எழுதவும்.
-3. பதிலில் நட்சத்திரக் குறியீடுகள் (** அல்லது *) மற்றும் > போன்ற குறியீடுகளைப் பயன்படுத்தாமல், தெளிவான தலைப்புகள் மற்றும் பத்திகளாகப் பிரித்து எழுதவும்.
+2. தமிழில் பதிலளிக்கும்போது 100% தமிழ் எழுத்துக்களை மட்டுமே பயன்படுத்த வேண்டும். இடையில் பெங்காலி (Bengali), இந்தி (Devanagari), தெலுங்கு அல்லது மலையாள எழுத்துக்கள் ஒரு எழுத்துகூட வரவே கூடாது.
+3. மெய்யெழுத்துப் புள்ளிகள் (்) விடுபடாமல், எழுத்துப் பிழை மற்றும் சந்திப் பிழையின்றி இயல்பான தூய தமிழில் எழுதவும்.
+4. பதிலில் நட்சத்திரக் குறியீடுகள் (** அல்லது *) மற்றும் > போன்ற குறியீடுகளைப் பயன்படுத்தாமல், தெளிவான தலைப்புகள் மற்றும் பத்திகளாகப் பிரித்து எழுதவும்.
 
 பதிலின் கட்டமைப்பு (ஒவ்வொரு பதிலிலும் கீழே உள்ள பகுதிகள் கட்டாயம் இருக்க வேண்டும்):
 1. ஆவிக்குரிய ஆலோசனை மற்றும் வேத வசனங்கள்: கேள்விக்குப் பொருத்தமான பரிசுத்த வேதாகம வசனங்களை (புத்தகம், அதிகாரம், வசனம் குறிப்பிட்டு) மேற்கோள் காட்டித் தெளிவான விளக்கம் அளிக்கவும்.
 2. சிறிய ஜெபம்: பயனருக்காக ஒரு சுருக்கமான, மனதைத் தொடும் ஜெபத்தை எழுதவும்.
-3. தொடர்ந்து வாசிக்க வேண்டிய வேதாகம அதிகாரங்கள்: பயனர் கேட்ட கேள்வியின் அடிப்படையில் அவர்கள் ஆவிக்குரிய ஜீவியத்தில் இன்னும் ஆழமாக வளர, வேதாகமத்தில் வாசிக்க வேண்டிய 2 அல்லது 3 முக்கிய அதிகாரங்களைப் (உதாரணம்: சங்கீதம் 91, யோவான் 15, ரோமர் 8) பரிந்துரைக்கவும்.
+3. தொடர்ந்து வாசிக்க வேண்டிய வேதாகம அதிகாரங்கள்: பயனர் கேட்ட கேள்வியின் அடிப்படையில் அவர்கள் ஆவிக்குரிய ஜீவியத்தில் இன்னும் ஆழமாக வளர, வேதாகமத்தில் வாசிக்க வேண்டிய 2 அல்லது 3 முக்கிய அதிகாரங்களைப் பரிந்துரைக்கவும்.
 4. ஜெப நேரப் பரிந்துரை: இந்தக் காரியத்திற்காக உங்களால் முடிந்தால் அதிகாலை வேளையிலோ, பகல் நேரத்திலோ அல்லது இரவு படுக்கைக்குச் செல்லும் முன்போ எவ்வாறு ஜெபிக்கலாம் என்ற நடைமுறை ஜெப நேர ஆலோசனையை வழங்கவும்.
 5. அன்பான அழைப்பு: பதிலின் இறுதியில், "உங்கள் ஆவிக்குரிய வாழ்க்கையின் ஆழமான சந்தேகங்களையும் கேள்விகளையும் தயங்காமல் தொடர்ந்து என்னிடத்தில் கேளுங்கள், கர்த்தர் உங்களை ஆசீர்வதிப்பாராக" என்ற தொனியில் உற்சாகப்படுத்தி முடிக்கவும்.
 ''';
 
   static String _cleanResponseText(String raw) {
-    return raw
+    String cleaned = raw
         .replaceAll('**', '')
         .replaceAll('__', '')
         .replaceAll('### ', '')
         .replaceAll('## ', '')
         .replaceAll('# ', '')
-        .replaceAll(RegExp(r'^\s*>\s*', multiLine: true), '')
-        .trim();
+        .replaceAll(RegExp(r'^\s*>\s*', multiLine: true), '');
+
+    // பெங்காலி (\u0980-\u09FF) மற்றும் தேவநாகரி (\u0900-\u097F) எழுத்துக்கள் தவறுதலாக வந்தால் நீக்குதல்
+    cleaned = cleaned.replaceAll(RegExp('[\u0980-\u09FF\u0900-\u097F]+'), '');
+
+    // இரட்டை இடைவெளிகளைச் சரிசெய்தல்
+    cleaned = cleaned.replaceAll(RegExp(r' {2,}'), ' ').trim();
+    return cleaned;
   }
 
   static Future _discoverActiveModels() async {
@@ -49,7 +56,8 @@ class PasDService {
         final data = jsonDecode(res.body);
         final models = data['models'];
         if (models is List) {
-          final List flashModels = [];
+          final List standardFlashModels = [];
+          final List liteFlashModels = [];
           final List otherModels = [];
 
           for (final m in models) {
@@ -60,11 +68,15 @@ class PasDService {
                 final cleanName = rawName.replaceFirst('models/', '');
                 if (cleanName.contains('embedding') ||
                     cleanName.contains('imagen') ||
-                    cleanName.contains('veo')) {
+                    cleanName.contains('veo') ||
+                    cleanName.contains('tts') ||
+                    cleanName.contains('audio')) {
                   continue;
                 }
-                if (cleanName.contains('flash')) {
-                  flashModels.add(cleanName);
+                if (cleanName.contains('flash') && !cleanName.contains('lite')) {
+                  standardFlashModels.add(cleanName);
+                } else if (cleanName.contains('flash')) {
+                  liteFlashModels.add(cleanName);
                 } else if (cleanName.contains('gemini')) {
                   otherModels.add(cleanName);
                 }
@@ -72,10 +84,13 @@ class PasDService {
             }
           }
 
-          flashModels.sort((a, b) => b.toString().compareTo(a.toString()));
+          standardFlashModels
+              .sort((a, b) => b.toString().compareTo(a.toString()));
+          liteFlashModels.sort((a, b) => b.toString().compareTo(a.toString()));
           otherModels.sort((a, b) => b.toString().compareTo(a.toString()));
 
-          discovered.addAll(flashModels);
+          discovered.addAll(standardFlashModels);
+          discovered.addAll(liteFlashModels);
           discovered.addAll(otherModels);
         }
       }
@@ -138,7 +153,7 @@ class PasDService {
 
     final String finalPrompt = (feedbackCorrection != null &&
             feedbackCorrection.trim().isNotEmpty)
-        ? "$userMessage\n\n(பயனரின் கருத்து / திருத்தம்: $feedbackCorrection — இந்தக் கருத்தைக் கவனத்தில் கொண்டு, எழுத்துப் பிழையின்றி இன்னும் தெளிவாகவும் பொருத்தமாகவும் பதிலளிக்கவும்.)"
+        ? "$userMessage\n\n(பயனரின் கருத்து / திருத்தம்: $feedbackCorrection — இந்தக் கருத்தைக் கவனத்தில் கொண்டு, 100% தூய தமிழ் எழுத்துக்களில் பிழையின்றி இன்னும் தெளிவாகவும் பொருத்தமாகவும் பதிலளிக்கவும்.)"
         : userMessage;
 
     contents.add({
@@ -172,7 +187,8 @@ class PasDService {
                 },
                 'contents': contents,
                 'generationConfig': {
-                  'temperature': 0.35,
+                  'temperature': 0.25,
+                  'topP': 0.85,
                   'maxOutputTokens': 1400,
                 },
               }),
