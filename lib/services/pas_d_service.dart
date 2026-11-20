@@ -99,7 +99,7 @@ class PasDService {
           if (response.statusCode == 404) {
             continue;
           }
-          return "API பிழை (${response.statusCode}): $lastErrorDetail";
+          return "API பிழை (${response.statusCode}):$lastErrorDetail";
         }
       } catch (e) {
         return "இணையத் தொடர்புப் பிழை: $e";
