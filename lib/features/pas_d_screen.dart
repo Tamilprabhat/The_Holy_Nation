@@ -33,16 +33,93 @@ class _PasDScreenState extends State {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   Database? _feedbackDb;
+  String _selectedLanguage = 'Auto';
 
-  final List _quickPrompts = [
-    "மன அமைதிக்கான வேத வசனம்",
-    "பயத்தை நீக்கும் ஜெபம்",
-    "மன்னிப்பைப் பற்றி வேதம் என்ன சொல்கிறது?",
-    "Biblical guidance for difficult times",
+  final List _languages = [
+    {'code': 'Auto', 'label': '🌐 Auto'},
+    {'code': 'Tamil', 'label': 'தமிழ்'},
+    {'code': 'English', 'label': 'English'},
+    {'code': 'Hindi', 'label': 'हिन्दी'},
+    {'code': 'Malayalam', 'label': 'മലയാളം'},
+    {'code': 'Telugu', 'label': 'తెలుగు'},
+    {'code': 'Kannada', 'label': 'ಕನ್ನಡ'},
+    {'code': 'Bengali', 'label': 'বাংলা'},
+    {'code': 'Marathi', 'label': 'मराठी'},
+    {'code': 'Gujarati', 'label': 'ગુજરાતી'},
+    {'code': 'Punjabi', 'label': 'ਪੰਜਾਬੀ'},
   ];
 
+  final Map _languagePrompts = {
+    'Auto': [
+      "மன அமைதிக்கான வேத வசனம்",
+      "शांति के लिए बाइबल वचन",
+      "Biblical guidance for difficult times",
+      "സമാധാനത്തിനുള്ള ബൈബിൾ വാക്യം",
+    ],
+    'Tamil': [
+      "மன அமைதிக்கான வேத வசனம்",
+      "பயத்தை நீக்கும் ஜெபம்",
+      "மன்னிப்பைப் பற்றி வேதம் என்ன சொல்கிறது?",
+      "பரிசுத்த ஜீவியம் செய்வதற்கான வழி",
+    ],
+    'English': [
+      "Bible verse for peace of mind",
+      "Prayer to overcome fear and anxiety",
+      "What does the Bible say about forgiveness?",
+      "How to grow stronger in spiritual life?",
+    ],
+    'Hindi': [
+      "मन की शांति के लिए बाइबल वचन",
+      "डर दूर करने के लिए प्रार्थना",
+      "क्षमा के बारे में बाइबल क्या कहती है?",
+      "आत्मिक जीवन में बढ़ने के लिए मार्गदर्शन",
+    ],
+    'Malayalam': [
+      "മനസ്സമാധാനത്തിനുള്ള ബൈബിൾ വാക്യം",
+      "ഭയം നീക്കാനുള്ള പ്രാർത്ഥന",
+      "ക്ഷമയെക്കുറിച്ച് ബൈബിൾ എന്ത് പറയുന്നു?",
+      "ആത്മീയ ജീവിതത്തിൽ വളരാനുള്ള വഴി",
+    ],
+    'Telugu': [
+      "మనశ్శాంతి కోసం బైబిల్ వాక్యం",
+      "భయాన్ని తొలగించే ప్రార్థన",
+      "క్షమాపణ గురించి బైబిల్ ఏమి చెబుతోంది?",
+      "ఆత్మీయ జీవితంలో ఎదగడానికి మార్గం",
+    ],
+    'Kannada': [
+      "ಮನಃಶಾಂತಿಗಾಗಿ ಬೈಬಲ್ ವಚನ",
+      "ಭಯವನ್ನು ಹೋಗಲಾಡಿಸುವ ಪ್ರಾರ್ಥನೆ",
+      "ಕ್ಷಮೆಯ ಬಗ್ಗೆ ಬೈಬಲ್ ಏನು ಹೇಳುತ್ತದೆ?",
+      "ಆತ್ಮಿಕ ಜೀವನದಲ್ಲಿ ಬೆಳೆಯಲು ಮಾರ್ಗದರ್ಶನ",
+    ],
+    'Bengali': [
+      "মনের শান্তির জন্য বাইবেলের পদ",
+      "ভয় দূর করার প্রার্থনা",
+      "ক্ষমা সম্পর্কে বাইবেল কী বলে?",
+      "আধ্যাত্মিক জীবনে বৃদ্ধির পথ",
+    ],
+    'Marathi': [
+      "मनाच्या शांतीसाठी बायबल वचन",
+      "भीती दूर करण्यासाठी प्रार्थना",
+      "क्षमेबद्दल बायबल काय सांगते?",
+      "आध्यात्मिक जीवनात वाढण्यासाठी मार्गदर्शन",
+    ],
+    'Gujarati': [
+      "મનની શાંતિ માટે બાઇબલ વચન",
+      "ભય દૂર કરવા માટે પ્રાર્થના",
+      "ક્ષમા વિશે બાઇબલ શું કહે છે?",
+      "આત્મિક જીવનમાં આગળ વધવા માર્ગદર્શન",
+    ],
+    'Punjabi': [
+      "ਮਨ ਦੀ ਸ਼ਾਂਤੀ ਲਈ ਬਾਈਬਲ ਦਾ ਵਚਨ",
+      "ਡਰ ਦੂਰ ਕਰਨ ਲਈ ਪ੍ਰਾਰਥਨਾ",
+      "ਮਾਫ਼ੀ ਬਾਰੇ ਬਾਈਬਲ ਕੀ ਕਹਿੰਦੀ ਹੈ?",
+      "ਆਤਮਿਕ ਜੀਵਨ ਵਿੱਚ ਵਧਣ ਲਈ ਮਾਰਗਦਰਸ਼ਨ",
+    ],
+  };
+
   final List _improvementReasons = [
-    "தமிழ் எழுத்து / இலக்கணப் பிழை உள்ளது",
+    "எழுத்து / இலக்கணப் பிழை உள்ளது",
     "இன்னும் ஆழமான வேத வசனங்கள் தேவை",
     "கேள்விக்குப் பொருத்தமான பதில் இல்லை",
     "இன்னும் எளிமையாகவும் தெளிவாகவும் வேண்டும்",
@@ -102,7 +179,7 @@ class _PasDScreenState extends State {
     _messages.add(
       ChatMessage(
         text:
-            "வணக்கம்! நான் Pas D (AI Digital Pastor). வேதாகம அடிப்படையிலான ஆலோசனைகள், ஜெபக் குறிப்புகள் மற்றும் சந்தேகங்களுக்கு தமிழ் அல்லது ஆங்கிலத்தில் கேளுங்கள்.",
+            "வணக்கம்! நான் Pas D (AI Digital Pastor).\nதமிழ், English, हिन्दी, മലയാളം, తెలుగు, ಕನ್ನಡ, বাংলা, मराठी, ગુજરાતી, ਪੰਜਾਬੀ ஆகிய இந்திய மொழிகளில் உங்கள் வேதாகம சந்தேகங்களையும் ஜெபக் குறிப்புகளையும் கேளுங்கள்.",
         isUser: false,
       ),
     );
@@ -148,7 +225,11 @@ class _PasDScreenState extends State {
     });
     _scrollToBottom();
 
-    final reply = await PasDService.askPasD(text, history: history);
+    final reply = await PasDService.askPasD(
+      text,
+      history: history,
+      preferredLanguage: _selectedLanguage,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -188,6 +269,7 @@ class _PasDScreenState extends State {
       originalQuestion,
       history: history,
       feedbackCorrection: combinedFeedback,
+      preferredLanguage: _selectedLanguage,
     );
 
     if (!mounted) return;
@@ -469,6 +551,9 @@ class _PasDScreenState extends State {
     const Color cardDark = Color(0xFF1A1D26);
     const Color goldAccent = Color(0xFFE4AF37);
 
+    final activePrompts =
+        _languagePrompts[_selectedLanguage] ?? _languagePrompts['Auto']!;
+
     return Scaffold(
       backgroundColor: bgDark,
       appBar: AppBar(
@@ -502,7 +587,7 @@ class _PasDScreenState extends State {
                   ),
                 ),
                 Text(
-                  "AI Digital Pastor • Biblical Guide",
+                  "Multilingual AI Pastor • India",
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 11,
@@ -522,6 +607,53 @@ class _PasDScreenState extends State {
       ),
       body: Column(
         children: [
+          // இந்திய மொழிகள் தேர்வுப் பட்டை
+          Container(
+            height: 44,
+            color: const Color(0xFF141720),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              itemCount: _languages.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final lang = _languages[index];
+                final code = lang['code']!;
+                final label = lang['label']!;
+                final isSelected = _selectedLanguage == code;
+
+                return InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    setState(() {
+                      _selectedLanguage = code;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? goldAccent
+                          : const Color(0xFF1E222D),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? goldAccent : Colors.white12,
+                      ),
+                    ),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: isSelected ? Colors.black : Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
@@ -731,20 +863,20 @@ class _PasDScreenState extends State {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _quickPrompts.length,
+                itemCount: activePrompts.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   return ActionChip(
                     backgroundColor: cardDark,
                     side: BorderSide(color: goldAccent.withValues(alpha: 0.4)),
                     label: Text(
-                      _quickPrompts[index],
+                      activePrompts[index],
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
                       ),
                     ),
-                    onPressed: () => _sendMessage(_quickPrompts[index]),
+                    onPressed: () => _sendMessage(activePrompts[index]),
                   );
                 },
               ),
