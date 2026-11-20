@@ -14,37 +14,6 @@ class PasDService {
 4. பதில்களைச் சுருக்கமாகவும், வாசிக்க எளிதாகவும் பத்திகளாகப் பிரித்துத் தரவும்.
 ''';
 
-  static Future<String?> _findAvailableModel() async {
-    try {
-      final listUri = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models?key=$_apiKey',
-      );
-      final res = await http.get(listUri).timeout(const Duration(seconds: 15));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final models = data['models'];
-        if (models is List) {
-          String? fallbackModel;
-          for (final m in models) {
-            if (m is Map) {
-              final name = m['name']?.toString() ?? '';
-              final methods = m['supportedGenerationMethods'];
-              if (methods is List && methods.contains('generateContent')) {
-                final cleanName = name.replaceFirst('models/', '');
-                if (cleanName.contains('flash')) {
-                  return cleanName;
-                }
-                fallbackModel ??= cleanName;
-              }
-            }
-          }
-          return fallbackModel;
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
-
   static Future askPasD(
     String userMessage, {
     List history = const [],
@@ -54,11 +23,6 @@ class PasDService {
     }
 
     final modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
-    final detectedModel = await _findAvailableModel();
-    if (detectedModel != null && !modelsToTry.contains(detectedModel)) {
-      modelsToTry.insert(0, detectedModel);
-    }
-
     String lastErrorDetail = '';
 
     for (final model in modelsToTry) {
@@ -108,7 +72,7 @@ class PasDService {
                 },
               }),
             )
-            .timeout(const Duration(seconds: 30));
+            .timeout(const Duration(seconds: 45));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
