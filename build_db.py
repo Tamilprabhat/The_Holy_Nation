@@ -70,7 +70,20 @@ BOOKS_META = [
     (63, "2 யோவான்", "2 John", 1),
     (64, "3 யோவான்", "3 John", 1),
     (65, "யூதா", "Jude", 1),
-    (66, "வெளிப்படுத்தின விசேஷம்", "Revelation", 22)
+    (66, "வெளிப்படுத்தின விசேஷம்", "Revelation", 22),
+]
+
+LANG_CONFIGS = [
+    ("ta", ["tamil"]),
+    ("en", ["kjv", "english"]),
+    ("hi", ["hindi"]),
+    ("ml", ["malayalam"]),
+    ("te", ["telugu"]),
+    ("kn", ["kannada"]),
+    ("bn", ["bengali"]),
+    ("mr", ["marathi"]),
+    ("gu", ["gujarati"]),
+    ("pa", ["punjabi"]),
 ]
 
 
@@ -147,7 +160,7 @@ def to_verses_list(chap):
     except Exception:
         keys = list(chap.keys())
     for k in keys:
-        if str(k).lower() in ["chapter", "name", "num", "chapterid"]:
+        if str(k).lower() in ["chapter", "name", "num", "chapterno"]:
             continue
         v = chap[k]
         if isinstance(v, dict):
@@ -201,29 +214,27 @@ def build_database():
             check=True
         )
 
-    tamil_path = None
-    english_path = None
+    lang_paths = {code: None for code, _ in LANG_CONFIGS}
 
     for root, dirs, files in os.walk(source_dir):
         for f in sorted(files):
             if f.endswith(".json"):
                 full_path = os.path.join(root, f)
                 lower_path = full_path.lower()
-                if "tamil" in lower_path and tamil_path is None:
-                    tamil_path = full_path
-                elif ("kjv" in lower_path or "english" in lower_path) and english_path is None:
-                    english_path = full_path
+                for code, keywords in LANG_CONFIGS:
+                    if lang_paths[code] is None and any(kw in lower_path for kw in keywords):
+                        lang_paths[code] = full_path
 
-    print(f"Parsing Tamil from: {tamil_path}")
-    ta_dict = parse_bible_dict(tamil_path)
-    print(f"Total Tamil verses parsed: {len(ta_dict)}")
+    lang_dicts = {}
+    for code, _ in LANG_CONFIGS:
+        p = lang_paths[code]
+        print(f"Parsing [{code}] from: {p}")
+        parsed = parse_bible_dict(p)
+        print(f"Total [{code}] verses parsed: {len(parsed)}")
+        lang_dicts[code] = parsed
 
-    print(f"Parsing English from: {english_path}")
-    en_dict = parse_bible_dict(english_path)
-    print(f"Total English verses parsed: {len(en_dict)}")
-
-    if len(ta_dict) == 0 and len(en_dict) == 0:
-        print("ERROR: No verses were parsed from JSON files!")
+    if len(lang_dicts.get("ta", {})) == 0 and len(lang_dicts.get("en", {})) == 0:
+        print("ERROR: No verses were parsed from JSON files.")
         sys.exit(1)
 
     os.makedirs("assets", exist_ok=True)
@@ -251,7 +262,15 @@ def build_database():
         chapter INTEGER NOT NULL,
         verse INTEGER NOT NULL,
         text_ta TEXT NOT NULL,
-        text_en TEXT NOT NULL
+        text_en TEXT NOT NULL,
+        text_hi TEXT NOT NULL,
+        text_ml TEXT NOT NULL,
+        text_te TEXT NOT NULL,
+        text_kn TEXT NOT NULL,
+        text_bn TEXT NOT NULL,
+        text_mr TEXT NOT NULL,
+        text_gu TEXT NOT NULL,
+        text_pa TEXT NOT NULL
     );
     """)
 
@@ -263,14 +282,36 @@ def build_database():
         books_rows.append((b_id, name_ta, name_en, testament, ch_count))
     cur.executemany("INSERT INTO books VALUES (?, ?, ?, ?, ?)", books_rows)
 
-    all_keys = sorted(set(list(ta_dict.keys()) + list(en_dict.keys())))
+    all_keys = sorted(set(list(lang_dicts["ta"].keys()) + list(lang_dicts["en"].keys())))
     verses_rows = []
     for (b_id, ch, v) in all_keys:
-        verses_rows.append((b_id, ch, v, ta_dict.get((b_id, ch, v), ""), en_dict.get((b_id, ch, v), "")))
-    cur.executemany("INSERT INTO verses (book_id, chapter, verse, text_ta, text_en) VALUES (?, ?, ?, ?, ?)", verses_rows)
+        verses_rows.append((
+            b_id,
+            ch,
+            v,
+            lang_dicts["ta"].get((b_id, ch, v), ""),
+            lang_dicts["en"].get((b_id, ch, v), ""),
+            lang_dicts["hi"].get((b_id, ch, v), ""),
+            lang_dicts["ml"].get((b_id, ch, v), ""),
+            lang_dicts["te"].get((b_id, ch, v), ""),
+            lang_dicts["kn"].get((b_id, ch, v), ""),
+            lang_dicts["bn"].get((b_id, ch, v), ""),
+            lang_dicts["mr"].get((b_id, ch, v), ""),
+            lang_dicts["gu"].get((b_id, ch, v), ""),
+            lang_dicts["pa"].get((b_id, ch, v), ""),
+        ))
+
+    cur.executemany(
+        """INSERT INTO verses (
+            book_id, chapter, verse,
+            text_ta, text_en, text_hi, text_ml, text_te,
+            text_kn, text_bn, text_mr, text_gu, text_pa
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        verses_rows
+    )
 
     conn.commit()
-    print(f"Success! {len(books_rows)} books and {len(verses_rows)} verses inserted into holy_nation.db.")
+    print(f"Success! {len(books_rows)} books and {len(verses_rows)} multilingual verses inserted into holy_nation.db.")
     conn.close()
 
 
