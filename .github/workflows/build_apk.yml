@@ -51,7 +51,7 @@ jobs:
           '
 
       - name: Generate Launcher Icons
-        run: dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons -f pubspec.yaml
 
       - name: Build APK
         run: flutter build apk --release --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
