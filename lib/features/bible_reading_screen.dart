@@ -9,12 +9,14 @@ class BibleReadingScreen extends StatefulWidget {
   final dynamic book;
   final int initialChapter;
   final int? highlightVerse;
+  final String? initialPrimaryLang;
 
   const BibleReadingScreen({
     super.key,
     required this.book,
     this.initialChapter = 1,
     this.highlightVerse,
+    this.initialPrimaryLang,
   });
 
   @override
@@ -29,13 +31,27 @@ class _BibleReadingScreenState extends State {
   int? _activeHighlightVerse;
   int _totalChapters = 1;
   bool _isLoading = true;
-  bool _isTamilPrimary = true;
+  String _primaryLang = 'ta';
+  String _secondaryLang = 'en';
   bool _showBookList = true;
   bool _isPushedRoute = false;
   bool _routeChecked = false;
   List _books = [];
   List _verses = [];
   Set _bookmarkedVerses = {};
+
+  final List _bibleLanguages = [
+    {'code': 'ta', 'short': 'TA', 'name': 'தமிழ் (Tamil)'},
+    {'code': 'en', 'short': 'EN', 'name': 'English (KJV)'},
+    {'code': 'hi', 'short': 'HI', 'name': 'हिन्दी (Hindi)'},
+    {'code': 'ml', 'short': 'ML', 'name': 'മലയാളം (Malayalam)'},
+    {'code': 'te', 'short': 'TE', 'name': 'తెలుగు (Telugu)'},
+    {'code': 'kn', 'short': 'KN', 'name': 'ಕನ್ನಡ (Kannada)'},
+    {'code': 'bn', 'short': 'BN', 'name': 'বাংলা (Bengali)'},
+    {'code': 'mr', 'short': 'MR', 'name': 'मराठी (Marathi)'},
+    {'code': 'gu', 'short': 'GU', 'name': 'ગુજરાતી (Gujarati)'},
+    {'code': 'pa', 'short': 'PA', 'name': 'ਪੰਜਾਬੀ (Punjabi)'},
+  ];
 
   final ScrollController _scrollController = ScrollController();
   Timer? _readingTimer;
@@ -50,6 +66,13 @@ class _BibleReadingScreenState extends State {
     _currentBook = _screen.book;
     _selectedChapter = _screen.initialChapter;
     _activeHighlightVerse = _screen.highlightVerse;
+    if (_screen.initialPrimaryLang != null &&
+        _screen.initialPrimaryLang!.isNotEmpty) {
+      _primaryLang = _screen.initialPrimaryLang!;
+      if (_primaryLang == _secondaryLang) {
+        _secondaryLang = _primaryLang == 'en' ? 'ta' : 'en';
+      }
+    }
     _scrollController.addListener(_onScroll);
     _initData();
   }
@@ -73,6 +96,192 @@ class _BibleReadingScreenState extends State {
     _readingTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  String _getLangBadge() {
+    final pShort = _primaryLang.toUpperCase();
+    if (_secondaryLang == 'none') return pShort;
+    return '$pShort+${_secondaryLang.toUpperCase()}';
+  }
+
+  String _getVerseTextByCode(dynamic verse, String code) {
+    if (code == 'none' || verse == null) return '';
+    final key = 'text_$code';
+    final val = verse[key]?.toString().trim() ?? '';
+    if (val.isNotEmpty) return val;
+    if (code == 'ta') return verse['text_ta']?.toString() ?? '';
+    return '';
+  }
+
+  void _openLanguagePicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF181A24),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Row(
+                      children: [
+                        Icon(Icons.translate, color: Colors.amberAccent),
+                        SizedBox(width: 8),
+                        Text(
+                          'வேதாகம மொழிகளைத் தேர்ந்தெடுக்கவும்',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      '1. முதன்மை மொழி (Primary Language):',
+                      style: TextStyle(
+                        color: Colors.amberAccent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final lang in _bibleLanguages)
+                          ChoiceChip(
+                            selected: _primaryLang == lang['code'],
+                            backgroundColor: const Color(0xFF1E222D),
+                            selectedColor: Colors.indigoAccent,
+                            label: Text(
+                              lang['name']!,
+                              style: TextStyle(
+                                color: _primaryLang == lang['code']
+                                    ? Colors.white
+                                    : Colors.white70,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onSelected: (_) {
+                              setModalState(() {
+                                _primaryLang = lang['code']!;
+                                if (_secondaryLang == _primaryLang) {
+                                  _secondaryLang = 'none';
+                                }
+                              });
+                              setState(() {});
+                            },
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '2. துணை மொழி (Secondary Language - கீழே காட்ட):',
+                      style: TextStyle(
+                        color: Colors.tealAccent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          selected: _secondaryLang == 'none',
+                          backgroundColor: const Color(0xFF1E222D),
+                          selectedColor: Colors.teal.shade700,
+                          label: Text(
+                            'வேண்டாம் (Single)',
+                            style: TextStyle(
+                              color: _secondaryLang == 'none'
+                                  ? Colors.white
+                                  : Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onSelected: (_) {
+                            setModalState(() => _secondaryLang = 'none');
+                            setState(() {});
+                          },
+                        ),
+                        for (final lang in _bibleLanguages)
+                          if (lang['code'] != _primaryLang)
+                            ChoiceChip(
+                              selected: _secondaryLang == lang['code'],
+                              backgroundColor: const Color(0xFF1E222D),
+                              selectedColor: Colors.teal.shade700,
+                              label: Text(
+                                lang['name']!,
+                                style: TextStyle(
+                                  color: _secondaryLang == lang['code']
+                                      ? Colors.white
+                                      : Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onSelected: (_) {
+                                setModalState(() {
+                                  _secondaryLang = lang['code']!;
+                                });
+                                setState(() {});
+                              },
+                            ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigoAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text(
+                          'சரி (Apply Languages)',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _onScroll() {
@@ -261,11 +470,12 @@ class _BibleReadingScreenState extends State {
     final bookTa = _currentBook['name_ta'] ?? _currentBook['name'] ?? '';
     final bookEn = _currentBook['name_en'] ?? '';
     final vNum = verse['verse'];
-    final ta = verse['text_ta'] ?? verse['text'] ?? '';
-    final en = verse['text_en'] ?? '';
+    final pText = _getVerseTextByCode(verse, _primaryLang);
+    final sText = _getVerseTextByCode(verse, _secondaryLang);
 
-    final formatted =
-        '$bookTa ($bookEn) $_selectedChapter:$vNum\n$ta\n$en\n— THE HOLY NATION';
+    final formatted = sText.isNotEmpty
+        ? '$bookTa ($bookEn) $_selectedChapter:$vNum\n$pText\n$sText\n— THE HOLY NATION'
+        : '$bookTa ($bookEn) $_selectedChapter:$vNum\n$pText\n— THE HOLY NATION';
 
     Clipboard.setData(ClipboardData(text: formatted));
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -281,6 +491,7 @@ class _BibleReadingScreenState extends State {
   Widget _buildBookSelectionView() {
     final oldTestament = _books.where((b) => (b['id'] ?? 0) <= 39).toList();
     final newTestament = _books.where((b) => (b['id'] ?? 0) > 39).toList();
+    final bool isTamilMain = _primaryLang == 'ta';
 
     return DefaultTabController(
       length: 2,
@@ -301,7 +512,7 @@ class _BibleReadingScreenState extends State {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.white,
-              fontSize: 17,
+              fontSize: 16.5,
             ),
           ),
           centerTitle: false,
@@ -319,16 +530,12 @@ class _BibleReadingScreenState extends State {
             ),
             InkWell(
               borderRadius: BorderRadius.circular(20),
-              onTap: () {
-                setState(() {
-                  _isTamilPrimary = !_isTamilPrimary;
-                });
-              },
+              onTap: _openLanguagePicker,
               child: Container(
                 margin:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFF262A3B),
                   borderRadius: BorderRadius.circular(20),
@@ -336,14 +543,14 @@ class _BibleReadingScreenState extends State {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.translate, size: 15, color: Colors.white),
+                    const Icon(Icons.translate, size: 14, color: Colors.white),
                     const SizedBox(width: 4),
                     Text(
-                      _isTamilPrimary ? 'TA' : 'EN',
+                      _getLangBadge(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -363,15 +570,15 @@ class _BibleReadingScreenState extends State {
         ),
         body: TabBarView(
           children: [
-            _buildBookGrid(oldTestament),
-            _buildBookGrid(newTestament),
+            _buildBookGrid(oldTestament, isTamilMain),
+            _buildBookGrid(newTestament, isTamilMain),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBookGrid(List bookList) {
+  Widget _buildBookGrid(List bookList, bool isTamilMain) {
     if (bookList.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.indigoAccent),
@@ -407,7 +614,7 @@ class _BibleReadingScreenState extends State {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  _isTamilPrimary ? nameTa : nameEn,
+                  isTamilMain ? nameTa : nameEn,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -418,7 +625,7 @@ class _BibleReadingScreenState extends State {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _isTamilPrimary
+                  isTamilMain
                       ? '$nameEn • $chaptersCount அதி.'
                       : '$nameTa • $chaptersCount Ch.',
                   maxLines: 1,
@@ -462,7 +669,7 @@ class _BibleReadingScreenState extends State {
   }
 
   Widget _buildReadingView() {
-    final bookName = _isTamilPrimary
+    final bookName = _primaryLang == 'ta'
         ? (_currentBook['name_ta'] ?? _currentBook['name'] ?? '')
         : (_currentBook['name_en'] ?? _currentBook['name_ta'] ?? '');
 
@@ -499,7 +706,7 @@ class _BibleReadingScreenState extends State {
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    fontSize: 17,
+                    fontSize: 16.5,
                   ),
                 ),
               ),
@@ -524,14 +731,10 @@ class _BibleReadingScreenState extends State {
           ),
           InkWell(
             borderRadius: BorderRadius.circular(20),
-            onTap: () {
-              setState(() {
-                _isTamilPrimary = !_isTamilPrimary;
-              });
-            },
+            onTap: _openLanguagePicker,
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: const Color(0xFF262A3B),
                 borderRadius: BorderRadius.circular(20),
@@ -539,14 +742,14 @@ class _BibleReadingScreenState extends State {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.translate, size: 15, color: Colors.white),
-                  const SizedBox(width: 4),
+                  const Icon(Icons.translate, size: 14, color: Colors.white),
+                  const SizedBox(width: 3),
                   Text(
-                    _isTamilPrimary ? 'TA' : 'EN',
+                    _getLangBadge(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -675,14 +878,10 @@ class _BibleReadingScreenState extends State {
                         itemBuilder: (context, index) {
                           final verse = _verses[index];
                           final int verseNum = verse['verse'] ?? (index + 1);
-                          final taText =
-                              verse['text_ta'] ?? verse['text'] ?? '';
-                          final enText = verse['text_en'] ?? '';
-
                           final primaryText =
-                              _isTamilPrimary ? taText : enText;
+                              _getVerseTextByCode(verse, _primaryLang);
                           final secondaryText =
-                              _isTamilPrimary ? enText : taText;
+                              _getVerseTextByCode(verse, _secondaryLang);
                           final isBookmarked =
                               _bookmarkedVerses.contains(verseNum);
                           final isHighlighted =
@@ -722,7 +921,7 @@ class _BibleReadingScreenState extends State {
                                     style: TextStyle(
                                       color: Colors.white60,
                                       fontSize: 14,
-                                      fontStyle: _isTamilPrimary
+                                      fontStyle: _secondaryLang == 'en'
                                           ? FontStyle.italic
                                           : FontStyle.normal,
                                       height: 1.4,
