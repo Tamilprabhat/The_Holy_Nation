@@ -14,10 +14,36 @@ class _BibleSearchScreenState extends State {
   List _allResults = [];
   List _bookStats = [];
   int? _selectedBookId;
-  String _testamentFilter = 'ALL'; // ALL, OT, NT
+  String _testamentFilter = 'ALL';
+  String _displayLang = 'auto';
   bool _showBookBreakdown = true;
   bool _isSearching = false;
   bool _hasSearched = false;
+
+  final List _displayLangOptions = [
+    {'code': 'auto', 'label': '🌐 Auto'},
+    {'code': 'ta', 'label': 'தமிழ்'},
+    {'code': 'en', 'label': 'English'},
+    {'code': 'hi', 'label': 'हिन्दी'},
+    {'code': 'ml', 'label': 'മലയാളം'},
+    {'code': 'te', 'label': 'తెలుగు'},
+    {'code': 'kn', 'label': 'ಕನ್ನಡ'},
+    {'code': 'bn', 'label': 'বাংলা'},
+    {'code': 'mr', 'label': 'मराठी'},
+    {'code': 'gu', 'label': 'ગુજરાતી'},
+    {'code': 'pa', 'label': 'ਪੰਜਾਬੀ'},
+  ];
+
+  String _detectMatchedLang(dynamic item, String query) {
+    if (_displayLang != 'auto') return _displayLang;
+    final q = query.toLowerCase();
+    const codes = ['ta', 'en', 'hi', 'ml', 'te', 'kn', 'bn', 'mr', 'gu', 'pa'];
+    for (final c in codes) {
+      final txt = item['text_$c']?.toString().toLowerCase() ?? '';
+      if (txt.contains(q)) return c;
+    }
+    return 'ta';
+  }
 
   Future _performSearch(String query) async {
     final trimmed = query.trim();
@@ -59,7 +85,8 @@ class _BibleSearchScreenState extends State {
     }
 
     final statsList = grouped.values.toList();
-    statsList.sort((a, b) => (a['book_id'] as int).compareTo(b['book_id'] as int));
+    statsList
+        .sort((a, b) => (a['book_id'] as int).compareTo(b['book_id'] as int));
 
     setState(() {
       _allResults = data;
@@ -99,6 +126,7 @@ class _BibleSearchScreenState extends State {
   @override
   Widget build(BuildContext context) {
     final visibleResults = _filteredResults;
+    final query = _searchController.text.trim();
 
     return Scaffold(
       backgroundColor: const Color(0xFF12141D),
@@ -116,8 +144,8 @@ class _BibleSearchScreenState extends State {
           textInputAction: TextInputAction.search,
           onSubmitted: _performSearch,
           decoration: InputDecoration(
-            hintText: 'வசனங்களைத் தேடுக (தமிழ் / English)...',
-            hintStyle: const TextStyle(color: Colors.white54, fontSize: 14),
+            hintText: '10 மொழிகளில் தேடுக (தமிழ், EN, हिन्दी, മലയാളം)...',
+            hintStyle: const TextStyle(color: Colors.white54, fontSize: 13.5),
             border: InputBorder.none,
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
@@ -152,12 +180,12 @@ class _BibleSearchScreenState extends State {
                   child: Padding(
                     padding: EdgeInsets.all(24.0),
                     child: Text(
-                      'ஏதேனும் ஒரு தமிழ் அல்லது ஆங்கில வார்த்தையைத் தட்டச்சு செய்து தேடுங்கள்.\n(உதா: அன்பு, சமாதானம், பரிசுத்த, Peace)',
+                      'தமிழ், English, हिन्दी, മലയാളം, తెలుగు, ಕನ್ನಡ உள்ளிட்ட 10 மொழிகளிலும் எந்த வார்த்தையையும் தட்டச்சு செய்து தேடுங்கள்.\n(உதா: அன்பு, Peace, शांति, സമാധാനം)',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white54,
-                        fontSize: 15,
-                        height: 1.5,
+                        fontSize: 14.5,
+                        height: 1.55,
                       ),
                     ),
                   ),
@@ -231,6 +259,56 @@ class _BibleSearchScreenState extends State {
                                     ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: 8),
+                              // காட்சி மொழி தேர்வு
+                              SizedBox(
+                                height: 30,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _displayLangOptions.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(width: 6),
+                                  itemBuilder: (context, idx) {
+                                    final opt = _displayLangOptions[idx];
+                                    final isSel = _displayLang == opt['code'];
+                                    return InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: () {
+                                        setState(() {
+                                          _displayLang = opt['code']!;
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10),
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: isSel
+                                              ? Colors.teal.shade700
+                                              : const Color(0xFF1E222D),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: isSel
+                                                ? Colors.tealAccent
+                                                : Colors.white12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          opt['label']!,
+                                          style: TextStyle(
+                                            color: isSel
+                                                ? Colors.white
+                                                : Colors.white60,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                               const SizedBox(height: 8),
                               SingleChildScrollView(
@@ -346,8 +424,14 @@ class _BibleSearchScreenState extends State {
                               final nameEn = item['name_en'] ?? '';
                               final ch = item['chapter'] ?? 1;
                               final v = item['verse'] ?? 1;
-                              final textTa = item['text_ta'] ?? '';
-                              final textEn = item['text_en'] ?? '';
+
+                              final activeCode =
+                                  _detectMatchedLang(item, query);
+                              final primaryText =
+                                  item['text_$activeCode']?.toString() ?? '';
+                              final subText = activeCode != 'en'
+                                  ? (item['text_en']?.toString() ?? '')
+                                  : (item['text_ta']?.toString() ?? '');
 
                               return InkWell(
                                 borderRadius: BorderRadius.circular(12),
@@ -366,6 +450,7 @@ class _BibleSearchScreenState extends State {
                                         },
                                         initialChapter: ch,
                                         highlightVerse: v,
+                                        initialPrimaryLang: activeCode,
                                       ),
                                     ),
                                   );
@@ -389,19 +474,19 @@ class _BibleSearchScreenState extends State {
                                         ),
                                       ),
                                       const SizedBox(height: 6),
-                                      if (textTa.isNotEmpty)
+                                      if (primaryText.isNotEmpty)
                                         Text(
-                                          textTa,
+                                          primaryText,
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 15,
                                             height: 1.4,
                                           ),
                                         ),
-                                      if (textEn.isNotEmpty) ...[
+                                      if (subText.isNotEmpty) ...[
                                         const SizedBox(height: 4),
                                         Text(
-                                          textEn,
+                                          subText,
                                           style: const TextStyle(
                                             color: Colors.white60,
                                             fontSize: 13,
