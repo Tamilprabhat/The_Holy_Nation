@@ -369,39 +369,39 @@ class _PasDScreenState extends State {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _improvementReasons.map((reason) {
-                        final isSelected = selectedReasons.contains(reason);
-                        return FilterChip(
-                          selected: isSelected,
-                          backgroundColor: const Color(0xFF0F1115),
-                          selectedColor:
-                              const Color(0xFFE4AF37).withValues(alpha: 0.25),
-                          checkmarkColor: const Color(0xFFE4AF37),
-                          side: BorderSide(
-                            color: isSelected
-                                ? const Color(0xFFE4AF37)
-                                : Colors.white12,
-                          ),
-                          label: Text(
-                            reason,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Colors.amberAccent
-                                  : Colors.white70,
-                              fontSize: 12,
+                      children: [
+                        for (final reason in _improvementReasons)
+                          FilterChip(
+                            selected: selectedReasons.contains(reason),
+                            backgroundColor: const Color(0xFF0F1115),
+                            selectedColor:
+                                const Color(0xFFE4AF37).withValues(alpha: 0.25),
+                            checkmarkColor: const Color(0xFFE4AF37),
+                            side: BorderSide(
+                              color: selectedReasons.contains(reason)
+                                  ? const Color(0xFFE4AF37)
+                                  : Colors.white12,
                             ),
+                            label: Text(
+                              reason.toString(),
+                              style: TextStyle(
+                                color: selectedReasons.contains(reason)
+                                    ? Colors.amberAccent
+                                    : Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                            onSelected: (bool value) {
+                              setSheetState(() {
+                                if (selectedReasons.contains(reason)) {
+                                  selectedReasons.remove(reason);
+                                } else {
+                                  selectedReasons.add(reason);
+                                }
+                              });
+                            },
                           ),
-                          onPressed: () {
-                            setSheetState(() {
-                              if (isSelected) {
-                                selectedReasons.remove(reason);
-                              } else {
-                                selectedReasons.add(reason);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -607,7 +607,6 @@ class _PasDScreenState extends State {
       ),
       body: Column(
         children: [
-          // இந்திய மொழிகள் தேர்வுப் பட்டை
           Container(
             height: 44,
             color: const Color(0xFF141720),
