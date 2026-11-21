@@ -32,6 +32,20 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Create Android Project Files
+        run: |
+          flutter create --platforms=android .
+          python -c '
+          p = "android/app/src/main/AndroidManifest.xml"
+          with open(p, "r") as f:
+              s = f.read()
+          perm = "<uses-permission android:name=\"android.permission.INTERNET\"/>"
+          if perm not in s:
+              s = s.replace("<application", perm + "\n    <application", 1)
+              with open(p, "w") as f:
+                  f.write(s)
+          '
+
       - name: Install dependencies
         run: flutter pub get
 
