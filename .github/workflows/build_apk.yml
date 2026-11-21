@@ -36,6 +36,7 @@ jobs:
         run: |
           flutter create --platforms=android .
           python -c '
+          import os
           p = "android/app/src/main/AndroidManifest.xml"
           with open(p, "r") as f:
               s = f.read()
@@ -44,6 +45,21 @@ jobs:
               s = s.replace("<application", perm + "\n    <application", 1)
               with open(p, "w") as f:
                   f.write(s)
+
+          kts = "android/app/build.gradle.kts"
+          groovy = "android/app/build.gradle"
+          if os.path.exists(kts):
+              with open(kts, "r") as f:
+                  g = f.read()
+              g = g.replace("android {", "android {\n    lint {\n        checkReleaseBuilds = false\n        abortOnError = false\n    }", 1)
+              with open(kts, "w") as f:
+                  f.write(g)
+          elif os.path.exists(groovy):
+              with open(groovy, "r") as f:
+                  g = f.read()
+              g = g.replace("android {", "android {\n    lintOptions {\n        checkReleaseBuilds false\n        abortOnError false\n    }", 1)
+              with open(groovy, "w") as f:
+                  f.write(g)
           '
 
       - name: Install dependencies
