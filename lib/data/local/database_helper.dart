@@ -15,24 +15,42 @@ class DatabaseHelper {
     return _database!;
   }
 
+  Future _copyBundledDb(String path) async {
+    try {
+      await Directory(dirname(path)).create(recursive: true);
+    } catch (_) {}
+
+    ByteData data = await rootBundle.load('assets/holy_nation.db');
+    final bytes =
+        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    await File(path).writeAsBytes(bytes, flush: true);
+  }
+
   Future _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
     final exists = await databaseExists(path);
-
     if (!exists) {
-      try {
-        await Directory(dirname(path)).create(recursive: true);
-      } catch (_) {}
-
-      ByteData data = await rootBundle.load('assets/$filePath');
-      List bytes =
-          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-      await File(path).writeAsBytes(bytes.cast<int>(), flush: true);
+      await _copyBundledDb(path);
     }
 
-    final db = await openDatabase(path);
+    Database db = await openDatabase(path);
+
+    // பழைய 2-மொழி DB இருந்தால், புதிய 10-மொழி DB-ஐ தானாகப் புதுப்பித்தல்
+    try {
+      final cols = await db.rawQuery('PRAGMA table_info(verses)');
+      final hasHindi = cols.any((c) => c['name'] == 'text_hi');
+      if (!hasHindi) {
+        await db.close();
+        if (await File(path).exists()) {
+          await File(path).delete();
+        }
+        await _copyBundledDb(path);
+        db = await openDatabase(path);
+      }
+    } catch (_) {}
+
     await _ensureExtraTables(db);
     return db;
   }
@@ -111,7 +129,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // இரட்டை பதிவுகள் இருந்தால் சுத்தம் செய்தல்
     await db.execute('''
       DELETE FROM topic_messages
       WHERE id NOT IN (
@@ -278,7 +295,7 @@ class DatabaseHelper {
   Future getSingleVerse(int bookId, int chapter, int verse) async {
     final db = await instance.database;
     final rows = await db.rawQuery('''
-      SELECT v.book_id, v.chapter, v.verse, v.text_ta, v.text_en,
+      SELECT v.*,
              b.name_ta, b.name_en, b.testament, b.chapters_count
       FROM verses v
       INNER JOIN books b ON v.book_id = b.id
@@ -431,15 +448,36 @@ class DatabaseHelper {
     final clean = keyword.trim();
     if (clean.isEmpty) return [];
     final db = await instance.database;
+    final pattern = '%$clean%';
     return await db.rawQuery('''
       SELECT
-        v.book_id, v.chapter, v.verse, v.text_ta, v.text_en,
+        v.*,
         b.name_ta, b.name_en, b.testament, b.chapters_count
       FROM verses v
       INNER JOIN books b ON v.book_id = b.id
-      WHERE v.text_ta LIKE ? OR v.text_en LIKE ?
+      WHERE v.text_ta LIKE ?
+         OR v.text_en LIKE ?
+         OR v.text_hi LIKE ?
+         OR v.text_ml LIKE ?
+         OR v.text_te LIKE ?
+         OR v.text_kn LIKE ?
+         OR v.text_bn LIKE ?
+         OR v.text_mr LIKE ?
+         OR v.text_gu LIKE ?
+         OR v.text_pa LIKE ?
       ORDER BY v.book_id ASC, v.chapter ASC, v.verse ASC
-    ''', ['%$clean%', '%$clean%']);
+    ''', [
+      pattern,
+      pattern,
+      pattern,
+      pattern,
+      pattern,
+      pattern,
+      pattern,
+      pattern,
+      pattern,
+      pattern,
+    ]);
   }
 
   Future getBookmarkedVerseNumbers(int bookId, int chapter) async {
