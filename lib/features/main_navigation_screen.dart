@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'bible_reading_screen.dart';
 import 'pas_d_screen.dart';
+import 'community_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
   @override
-  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  State createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State {
   int _currentIndex = 0;
 
-  static const Map<String, dynamic> _defaultBook = {
+  static const Map _defaultBook = {
     'id': 1,
     'name_ta': 'ஆதியாகமம்',
     'name_en': 'Genesis',
@@ -21,26 +22,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     'chapters_count': 50,
   };
 
-  final List<Widget> _screens = [
+  final List _screens = [
     const HomeScreen(),
     const BibleReadingScreen(book: _defaultBook),
     const PasDScreen(),
-    const _ComingSoonScreen(
-      title: 'Holy Community',
-      subtitle: 'Praise God & Heart Tells சமூகப் பகிர்வு பகுதி (Phase 5)',
-      icon: Icons.forum_rounded,
-    ),
+    const CommunityScreen(),
     const _ComingSoonScreen(
       title: 'Profile & Settings',
-      subtitle: 'உங்கள் கணக்கு மற்றும் அமைப்புகள் (Phase 8 & 9)',
+      subtitle: 'உங்கள் கணக்கு மற்றும் அமைப்புகள் (Phase 6 & 9)',
       icon: Icons.person_rounded,
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    const cardDark = Color(0xFF1A1D24);
-    const goldAccent = Color(0xFFD4AF37);
+    const Color cardDark = Color(0xFF181A24);
+    const Color goldAccent = Color(0xFFE4AF37);
 
     return Scaffold(
       body: IndexedStack(
@@ -100,14 +97,14 @@ class _ComingSoonScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bgDark = Color(0xFF0F1115);
-    const goldAccent = Color(0xFFD4AF37);
+    const Color bgDark = Color(0xFF0F1115);
+    const Color goldAccent = Color(0xFFE4AF37);
 
     return Scaffold(
       backgroundColor: bgDark,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -125,7 +122,10 @@ class _ComingSoonScreen extends StatelessWidget {
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white60, fontSize: 14),
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 15,
+                ),
               ),
             ],
           ),
