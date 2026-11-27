@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'package:video_player/video_player.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -60,7 +61,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
 
     _db = await openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE stories (
@@ -85,6 +86,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
             body_text TEXT NOT NULL,
             bg_color INTEGER NOT NULL,
             image_path TEXT,
+            video_path TEXT,
             likes_count INTEGER NOT NULL DEFAULT 1,
             is_liked INTEGER NOT NULL DEFAULT 0,
             comments_count INTEGER NOT NULL DEFAULT 0,
@@ -141,7 +143,16 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
           )
         ''');
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        try {
+          await db.execute('ALTER TABLE posts ADD COLUMN video_path TEXT');
+        } catch (_) {}
+      },
     );
+
+    try {
+      await _db!.execute('ALTER TABLE posts ADD COLUMN video_path TEXT');
+    } catch (_) {}
 
     await _seedInitialYouthData();
     await _refreshAllData();
@@ -194,6 +205,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
           'நீங்கள் எதிர்பார்த்திருக்கும் முடிவை உங்களுக்குக் கொடுக்கும்படிக்கு நான் உங்கள்பேரில் நினைத்திருக்கிற நினைவுகளை அறிவேன் என்று கர்த்தர் சொல்லுகிறார்; அவைகள் தீமைக்கல்ல, சமாதானத்துக்கேதுவான நினைவுகளே.',
       'bg_color': 0xFF1E2A4A,
       'image_path': null,
+      'video_path': null,
       'likes_count': 42,
       'is_liked': 0,
       'comments_count': 2,
@@ -222,6 +234,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
           'என்னைப் பெலப்படுத்துகிற கிறிஸ்துவினாலே எல்லாவற்றையுஞ்செய்ய எனக்குப் பெலனுண்டு. இன்றைய தேர்வுகளிலும் வேலைகளிலும் கர்த்தர் எனக்கு ஜெயம் தருவார்!',
       'bg_color': 0xFF1B4332,
       'image_path': null,
+      'video_path': null,
       'likes_count': 57,
       'is_liked': 1,
       'comments_count': 0,
@@ -678,6 +691,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
     String category = 'promise';
     int selectedColor = _cardColors.first;
     String? pickedImg;
+    String? pickedVideo;
 
     showModalBottomSheet(
       context: context,
@@ -698,7 +712,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'புதிய சமூகப் பதிவு (Create Post)',
+                      'புதிய சமூகப் பதிவு (Create Post / Video)',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -743,7 +757,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                           selected: category == 'testimony',
                           selectedColor: const Color(0xFFE4AF37),
                           label: Text(
-                            'சாட்சி',
+                            'சாட்சி / பாடல்',
                             style: TextStyle(
                               color: category == 'testimony'
                                   ? Colors.black
@@ -776,8 +790,8 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                       controller: refCtrl,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'வேத ஆதாரம் / தலைப்பு (உதா: யோவான் 3:16)',
-                        hintStyle: const TextStyle(color: Colors.white38),
+                        hintText: 'தலைப்பு / வேத ஆதாரம் (உதா: ஆராதனை பாடல் / யோவான் 3:16)',
+                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 12.5),
                         filled: true,
                         fillColor: const Color(0xFF0F1115),
                         border: OutlineInputBorder(
@@ -792,7 +806,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                       maxLines: 3,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'வசனம் அல்லது உங்கள் சாட்சியை எழுதுங்கள்...',
+                        hintText: 'வசனம் அல்லது வீடியோ குறிப்பை எழுதுங்கள்...',
                         hintStyle: const TextStyle(color: Colors.white38),
                         filled: true,
                         fillColor: const Color(0xFF0F1115),
@@ -803,7 +817,10 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         for (final c in _cardColors)
                           GestureDetector(
@@ -811,17 +828,19 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                               setModalState(() {
                                 selectedColor = c;
                                 pickedImg = null;
+                                pickedVideo = null;
                               });
                             },
                             child: Container(
-                              width: 28,
-                              height: 28,
-                              margin: const EdgeInsets.only(right: 8),
+                              width: 26,
+                              height: 26,
                               decoration: BoxDecoration(
                                 color: Color(c),
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: (selectedColor == c && pickedImg == null)
+                                  color: (selectedColor == c &&
+                                          pickedImg == null &&
+                                          pickedVideo == null)
                                       ? const Color(0xFFE4AF37)
                                       : Colors.white24,
                                   width: 2,
@@ -829,14 +848,22 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                               ),
                             ),
                           ),
-                        const Spacer(),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.amberAccent,
-                            side: const BorderSide(color: Colors.amberAccent),
+                            side: BorderSide(
+                              color: pickedImg != null
+                                  ? Colors.tealAccent
+                                  : Colors.amberAccent,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                           ),
                           icon: const Icon(Icons.image, size: 16),
-                          label: const Text('புகைப்படம்'),
+                          label: Text(
+                            pickedImg != null ? 'படம் தேர்வு ✓' : 'புகைப்படம்',
+                            style: const TextStyle(fontSize: 12),
+                          ),
                           onPressed: () async {
                             final picker = ImagePicker();
                             final file = await picker.pickImage(
@@ -844,12 +871,80 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                               imageQuality: 80,
                             );
                             if (file != null) {
-                              setModalState(() => pickedImg = file.path);
+                              setModalState(() {
+                                pickedImg = file.path;
+                                pickedVideo = null;
+                              });
+                            }
+                          },
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.tealAccent,
+                            side: BorderSide(
+                              color: pickedVideo != null
+                                  ? Colors.amberAccent
+                                  : Colors.tealAccent,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                          ),
+                          icon: const Icon(Icons.videocam_rounded, size: 17),
+                          label: Text(
+                            pickedVideo != null ? 'வீடியோ தேர்வு ✓' : 'வீடியோ',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          onPressed: () async {
+                            final picker = ImagePicker();
+                            final file = await picker.pickVideo(
+                              source: ImageSource.gallery,
+                              maxDuration: const Duration(seconds: 60),
+                            );
+                            if (file != null) {
+                              setModalState(() {
+                                pickedVideo = file.path;
+                                pickedImg = null;
+                              });
                             }
                           },
                         ),
                       ],
                     ),
+                    if (pickedVideo != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.video_file,
+                                color: Colors.tealAccent, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                p.basename(pickedVideo!),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.tealAccent,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close,
+                                  color: Colors.white54, size: 16),
+                              onPressed: () =>
+                                  setModalState(() => pickedVideo = null),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -860,7 +955,12 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                           padding: const EdgeInsets.symmetric(vertical: 13),
                         ),
                         onPressed: () async {
-                          if (bodyCtrl.text.trim().isEmpty || _db == null) return;
+                          if (bodyCtrl.text.trim().isEmpty &&
+                              pickedVideo == null &&
+                              pickedImg == null) {
+                            return;
+                          }
+                          if (_db == null) return;
                           await _db!.insert('posts', {
                             'category': category,
                             'author_name': authorCtrl.text.trim().isEmpty
@@ -868,11 +968,16 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                                 : authorCtrl.text.trim(),
                             'author_role': 'Youth Member • The Holy Nation',
                             'ref_title': refCtrl.text.trim().isEmpty
-                                ? 'வேத தியானம்'
+                                ? (pickedVideo != null
+                                    ? 'Youth Worship / Testimony Video'
+                                    : 'வேத தியானம்')
                                 : refCtrl.text.trim(),
-                            'body_text': bodyCtrl.text.trim(),
+                            'body_text': bodyCtrl.text.trim().isEmpty
+                                ? 'கிறிஸ்துவுக்குள் அன்பின் பகிர்வு!'
+                                : bodyCtrl.text.trim(),
                             'bg_color': selectedColor,
                             'image_path': pickedImg,
+                            'video_path': pickedVideo,
                             'likes_count': 1,
                             'is_liked': 1,
                             'comments_count': 0,
@@ -1336,6 +1441,10 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
   Widget _buildFeedAndStoriesTab() {
     final filteredPosts = _posts.where((pItem) {
       if (_feedFilter == 'ALL') return true;
+      if (_feedFilter == 'VIDEO') {
+        final vPath = pItem['video_path']?.toString() ?? '';
+        return vPath.isNotEmpty;
+      }
       return pItem['category'] == _feedFilter;
     }).toList();
 
@@ -1344,7 +1453,6 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 85),
         children: [
-          // Instagram Style Stories Bar
           Container(
             height: 112,
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1447,8 +1555,6 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
               },
             ),
           ),
-
-          // Filter Chips
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
             child: SingleChildScrollView(
@@ -1456,6 +1562,8 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
               child: Row(
                 children: [
                   _buildFilterPill('ALL', 'அனைத்தும்'),
+                  const SizedBox(width: 8),
+                  _buildFilterPill('VIDEO', '🎬 வீடியோக்கள்'),
                   const SizedBox(width: 8),
                   _buildFilterPill('promise', 'வாக்குத்தத்தங்கள்'),
                   const SizedBox(width: 8),
@@ -1466,8 +1574,17 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
               ),
             ),
           ),
-
-          // Feed Cards
+          if (filteredPosts.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(
+                child: Text(
+                  'இந்தப் பிரிவில் இன்னும் பதிவுகள் இல்லை. புதிய பதிவை உருவாக்குங்கள்!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white54, fontSize: 14),
+                ),
+              ),
+            ),
           for (final post in filteredPosts) _buildPostCard(post),
         ],
       ),
@@ -1505,8 +1622,11 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
     final int likes = post['likes_count'] ?? 0;
     final int comments = post['comments_count'] ?? 0;
     final String? imgPath = post['image_path'];
+    final String? vidPath = post['video_path'];
     final bool hasImage =
         imgPath != null && imgPath.isNotEmpty && File(imgPath).existsSync();
+    final bool hasVideo =
+        vidPath != null && vidPath.isNotEmpty && File(vidPath).existsSync();
 
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 8, 14, 10),
@@ -1521,7 +1641,10 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
           ListTile(
             leading: CircleAvatar(
               backgroundColor: Color(post['bg_color'] ?? 0xFF283593),
-              child: const Icon(Icons.person, color: Colors.white),
+              child: Icon(
+                hasVideo ? Icons.videocam : Icons.person,
+                color: Colors.white,
+              ),
             ),
             title: Text(
               post['author_name'] ?? '',
@@ -1551,10 +1674,17 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
               },
             ),
           ),
+          if (hasVideo) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: YouthVideoPlayerWidget(videoPath: vidPath),
+            ),
+            const SizedBox(height: 10),
+          ],
           Container(
             width: double.infinity,
             margin: const EdgeInsets.symmetric(horizontal: 14),
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Color(post['bg_color'] ?? 0xFF1E2A4A),
               borderRadius: BorderRadius.circular(14),
@@ -1588,12 +1718,12 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   post['body_text'] ?? '',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 15,
+                    fontSize: 14.5,
                     height: 1.55,
                   ),
                 ),
@@ -2148,6 +2278,143 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                 }
               },
             ),
+    );
+  }
+}
+
+class YouthVideoPlayerWidget extends StatefulWidget {
+  final String videoPath;
+
+  const YouthVideoPlayerWidget({super.key, required this.videoPath});
+
+  @override
+  State createState() => _YouthVideoPlayerWidgetState();
+}
+
+class _YouthVideoPlayerWidgetState extends State {
+  YouthVideoPlayerWidget get _w => widget as YouthVideoPlayerWidget;
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+  bool _isMuted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVideo();
+  }
+
+  Future _initVideo() async {
+    final ctrl = VideoPlayerController.file(File(_w.videoPath));
+    _controller = ctrl;
+    try {
+      await ctrl.initialize();
+      await ctrl.setLooping(true);
+      if (mounted) {
+        setState(() => _isInitialized = true);
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized || _controller == null) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.black45,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: Color(0xFFE4AF37)),
+        ),
+      );
+    }
+
+    final bool isPlaying = _controller!.value.isPlaying;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        color: Colors.black,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AspectRatio(
+              aspectRatio: _controller!.value.aspectRatio > 0
+                  ? _controller!.value.aspectRatio
+                  : 16 / 9,
+              child: VideoPlayer(_controller!),
+            ),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isPlaying) {
+                    _controller!.pause();
+                  } else {
+                    _controller!.play();
+                  }
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: isPlaying ? 0.25 : 0.6),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: const Color(0xFFE4AF37),
+                  size: 36,
+                ),
+              ),
+            ),
+            Positioned(
+              right: 8,
+              bottom: 12,
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _isMuted = !_isMuted;
+                    _controller!.setVolume(_isMuted ? 0.0 : 1.0);
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    _isMuted ? Icons.volume_off : Icons.volume_up,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: VideoProgressIndicator(
+                _controller!,
+                allowScrubbing: true,
+                colors: const VideoProgressColors(
+                  playedColor: Color(0xFFE4AF37),
+                  bufferedColor: Colors.white24,
+                  backgroundColor: Colors.black38,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
