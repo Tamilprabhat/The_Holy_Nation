@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:video_player/video_player.dart';
+import '../data/local/database_helper.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -23,6 +24,11 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
   List _friends = [];
   List _groups = [];
   List _recentChats = [];
+
+  String _myChurchType = '';
+  String _myFavBook = '';
+  String _myFavSong = '';
+  String _myCategory = '';
 
   String _feedFilter = 'ALL';
   String _friendSearch = '';
@@ -55,13 +61,28 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
     super.dispose();
   }
 
+  Future _loadMySpiritualProfile() async {
+    try {
+      final mainDb = await DatabaseHelper.instance.database;
+      final rows = await mainDb.query('user_profile', where: 'id = 1');
+      if (rows.isNotEmpty) {
+        final r = rows.first;
+        _myChurchType = r['church_type']?.toString() ?? '';
+        _myFavBook = r['favorite_book']?.toString() ?? '';
+        _myFavSong = r['favorite_song']?.toString() ?? '';
+        _myCategory = r['spiritual_category']?.toString() ?? '';
+      }
+    } catch (_) {}
+  }
+
   Future _initSocialDatabase() async {
+    await _loadMySpiritualProfile();
     final dbDir = await getDatabasesPath();
     final dbPath = p.join(dbDir, 'holy_nation_youth_social.db');
 
     _db = await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE stories (
@@ -110,6 +131,9 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
             name TEXT NOT NULL,
             bio TEXT NOT NULL,
             city TEXT NOT NULL,
+            church_type TEXT NOT NULL DEFAULT '',
+            favorite_book TEXT NOT NULL DEFAULT '',
+            spiritual_category TEXT NOT NULL DEFAULT '',
             status TEXT NOT NULL,
             avatar_color INTEGER NOT NULL,
             is_online INTEGER NOT NULL DEFAULT 1
@@ -144,15 +168,19 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        try {
-          await db.execute('ALTER TABLE posts ADD COLUMN video_path TEXT');
-        } catch (_) {}
+        final alters = [
+          'ALTER TABLE posts ADD COLUMN video_path TEXT',
+          "ALTER TABLE friends ADD COLUMN church_type TEXT NOT NULL DEFAULT ''",
+          "ALTER TABLE friends ADD COLUMN favorite_book TEXT NOT NULL DEFAULT ''",
+          "ALTER TABLE friends ADD COLUMN spiritual_category TEXT NOT NULL DEFAULT ''",
+        ];
+        for (final s in alters) {
+          try {
+            await db.execute(s);
+          } catch (_) {}
+        }
       },
     );
-
-    try {
-      await _db!.execute('ALTER TABLE posts ADD COLUMN video_path TEXT');
-    } catch (_) {}
 
     await _seedInitialYouthData();
     await _refreshAllData();
@@ -185,16 +213,6 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
       'is_viewed': 0,
       'created_at': now,
     });
-    await _db!.insert('stories', {
-      'author_name': 'யோசுவா (Joshua)',
-      'verse_ref': 'ஏசாயா 40:31',
-      'story_text':
-          'கர்த்தருக்குக் காத்திருக்கிறவர்களோ புதுப்பெலன் அடைந்து, கழுகுகளைப்போலச் செட்டைகளை அடித்து எழும்புவார்கள்.',
-      'bg_color': 0xFF1B4332,
-      'image_path': null,
-      'is_viewed': 0,
-      'created_at': now,
-    });
 
     final post1 = await _db!.insert('posts', {
       'category': 'promise',
@@ -208,7 +226,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
       'video_path': null,
       'likes_count': 42,
       'is_liked': 0,
-      'comments_count': 2,
+      'comments_count': 1,
       'created_at': now,
     });
 
@@ -218,65 +236,58 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
       'comment_text': 'ஆமென்! வாலிபர்களுக்கு மிகப்பெரிய நம்பிக்கை தரும் வசனம்.',
       'created_at': now,
     });
-    await _db!.insert('post_comments', {
-      'post_id': post1,
-      'author_name': 'சாமுவேல் (Samuel)',
-      'comment_text': 'தேவனுக்கே மகிமை உண்டாவதாக!',
-      'created_at': now,
-    });
-
-    await _db!.insert('posts', {
-      'category': 'confession',
-      'author_name': 'எஸ்தர் (Esther)',
-      'author_role': 'Worship Team • Madurai',
-      'ref_title': 'பிலிப்பியர் (Philippians) 4:13',
-      'body_text':
-          'என்னைப் பெலப்படுத்துகிற கிறிஸ்துவினாலே எல்லாவற்றையுஞ்செய்ய எனக்குப் பெலனுண்டு. இன்றைய தேர்வுகளிலும் வேலைகளிலும் கர்த்தர் எனக்கு ஜெயம் தருவார்!',
-      'bg_color': 0xFF1B4332,
-      'image_path': null,
-      'video_path': null,
-      'likes_count': 57,
-      'is_liked': 1,
-      'comments_count': 0,
-      'created_at': now,
-    });
 
     await _db!.insert('friends', {
       'name': 'டேனியல் (Daniel)',
-      'bio': 'Youth Prayer & Music • கிறிஸ்துவுக்காக வாழ்வோம்',
+      'bio': 'சங்கீதம் (Psalms) • ஜெபம் & பரிந்துபேசுதல்',
       'city': 'Chennai',
+      'church_type': 'பெந்தெகொஸ்தே சபை (Pentecostal / AG / TPM)',
+      'favorite_book': 'சங்கீதம் (Psalms)',
+      'spiritual_category': 'ஜெபம் & பரிந்துபேசுதல் (Prayer)',
       'status': 'accepted',
       'avatar_color': 0xFF3949AB,
       'is_online': 1,
     });
     await _db!.insert('friends', {
       'name': 'எஸ்தர் (Esther)',
-      'bio': 'Choir & Bible Study • சங்கீதம் 23',
+      'bio': 'பாடல் & ஆராதனை • யோவான் (John)',
       'city': 'Madurai',
+      'church_type': 'தென்னிந்திய திருச்சபை (CSI)',
+      'favorite_book': 'யோவான் (John)',
+      'spiritual_category': 'பாடல் & ஆராதனை (Worship & Music)',
       'status': 'accepted',
       'avatar_color': 0xFF8E24AA,
       'is_online': 1,
     });
     await _db!.insert('friends', {
       'name': 'சாமுவேல் (Samuel)',
-      'bio': 'College Youth Fellowship',
+      'bio': 'வேத ஆராய்ச்சி • ரோமர் (Romans)',
       'city': 'Coimbatore',
+      'church_type': 'பெந்தெகொஸ்தே சபை (Pentecostal / AG / TPM)',
+      'favorite_book': 'ரோமர் (Romans)',
+      'spiritual_category': 'வேத ஆராய்ச்சி (Bible Study)',
       'status': 'pending',
       'avatar_color': 0xFF00897B,
       'is_online': 0,
     });
     await _db!.insert('friends', {
       'name': 'ரூத் (Ruth)',
-      'bio': 'Daily Bible Reader • விசுவாசமே ஜெயம்',
+      'bio': 'புதிய ஆத்மா வழிகாட்டி • சங்கீதம் (Psalms)',
       'city': 'Trichy',
+      'church_type': 'எவாஞ்சலிக்கல் / சுயாதீன சபை (Evangelical / Independent)',
+      'favorite_book': 'சங்கீதம் (Psalms)',
+      'spiritual_category': 'வாலிபர் ஐக்கியம் (Youth Fellowship)',
       'status': 'suggested',
       'avatar_color': 0xFFD84315,
       'is_online': 1,
     });
     await _db!.insert('friends', {
       'name': 'யோசுவா (Joshua)',
-      'bio': 'Youth Evangelism Team',
+      'bio': 'சுவிசேஷ ஊழியம் • அப்போஸ்தலர் (Acts)',
       'city': 'Andaman',
+      'church_type': 'பெந்தெகொஸ்தே சபை (Pentecostal / AG / TPM)',
+      'favorite_book': 'அப்போஸ்தலர் (Acts)',
+      'spiritual_category': 'சுவிசேஷ ஊழியம் (Evangelism)',
       'status': 'suggested',
       'avatar_color': 0xFF1565C0,
       'is_online': 1,
@@ -292,51 +303,20 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
       'created_at': now,
     });
 
-    final g2 = await _db!.insert('youth_groups', {
-      'name': 'Choir & Worship Youth 🎸',
-      'category': 'ஆராதனை (Worship)',
-      'description': 'புதிய பாடல்கள், கிறிஸ்தவ இசை மற்றும் ஆராதனை அனுபவங்களைப் பகிரும் குழு.',
-      'members_text': 'நீங்கள், எஸ்தர், யோசுவா',
-      'members_count': 24,
-      'badge_color': 0xFF1B4332,
-      'created_at': now,
-    });
-
-    await _db!.insert('chat_messages', {
-      'chat_key': 'friend_1',
-      'chat_title': 'டேனியல் (Daniel)',
-      'is_group': 0,
-      'sender_name': 'டேனியல் (Daniel)',
-      'is_me': 0,
-      'message_text': 'Praise the Lord! இன்றைய வேத தியானம் ரொம்ப ஆசீர்வாதமாக இருந்தது.',
-      'verse_tag': 'சங்கீதம் 119:105',
-      'sent_time': '09:30 AM',
-    });
-
     await _db!.insert('chat_messages', {
       'chat_key': 'group_$g1',
       'chat_title': 'Youth Prayer Warriors 🙏',
       'is_group': 1,
       'sender_name': 'எஸ்தர் (Esther)',
       'is_me': 0,
-      'message_text': 'இன்று இரவு 9 மணிக்கு நம் வாலிப நண்பர்களின் படிப்பு மற்றும் எதிர்காலத்திற்காக ஜெபிப்போம்!',
+      'message_text': 'இன்று இரவு 9 மணிக்கு நம் வாலிப நண்பர்களுக்காக ஜெபிப்போம்!',
       'verse_tag': 'யாக்கோபு 5:16',
       'sent_time': '06:15 PM',
-    });
-
-    await _db!.insert('chat_messages', {
-      'chat_key': 'group_$g2',
-      'chat_title': 'Choir & Worship Youth 🎸',
-      'is_group': 1,
-      'sender_name': 'டேனியல் (Daniel)',
-      'is_me': 0,
-      'message_text': 'இந்த வார ஆராதனைக்கு எந்தப் பாடல் எடுக்கலாம் நண்பர்களே?',
-      'verse_tag': '',
-      'sent_time': '07:05 PM',
     });
   }
 
   Future _refreshAllData() async {
+    await _loadMySpiritualProfile();
     if (_db == null) return;
     final stories = await _db!.query('stories', orderBy: 'id DESC');
     final posts = await _db!.query('posts', orderBy: 'id DESC');
@@ -364,13 +344,35 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
     });
   }
 
+  String _getMatchReason(dynamic friend) {
+    final fChurch = friend['church_type']?.toString() ?? '';
+    final fBook = friend['favorite_book']?.toString() ?? '';
+    final fCat = friend['spiritual_category']?.toString() ?? '';
+
+    if (_myChurchType.contains('புதிய ஆத்மா') ||
+        _myChurchType.contains('எந்த சபைக்கும்')) {
+      return '🤝 புதிய ஆத்மாவிற்கு அன்புடன் வழிகாட்டும் நண்பர்';
+    }
+    if (_myChurchType.isNotEmpty && fChurch == _myChurchType) {
+      return '⛪ உங்கள் அதே சபை விசுவாசி';
+    }
+    if (_myFavBook.isNotEmpty && fBook == _myFavBook) {
+      return '📖 விருப்பமான புத்தகம்: $_myFavBook';
+    }
+    if (_myCategory.isNotEmpty && fCat == _myCategory) {
+      return '✨ ஒத்த ஆவிக்குரிய விருப்பம்';
+    }
+    return '✝️ கிறிஸ்துவுக்குள் சகோதர/சகோதரி';
+  }
+
   Future _togglePostLike(dynamic post) async {
     if (_db == null) return;
     final int id = post['id'];
     final bool currentlyLiked = (post['is_liked'] ?? 0) == 1;
     final int currentCount = post['likes_count'] ?? 0;
-    final int nextCount =
-        currentlyLiked ? (currentCount > 0 ? currentCount - 1 : 0) : currentCount + 1;
+    final int nextCount = currentlyLiked
+        ? (currentCount > 0 ? currentCount - 1 : 0)
+        : currentCount + 1;
 
     await _db!.update(
       'posts',
@@ -494,15 +496,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                         'ஆமென் (Amen)',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('🙏 ஆமென்! உங்கள் வாழ்த்து அனுப்பப்பட்டது.'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
+                      onPressed: () => Navigator.pop(ctx),
                     ),
                   ),
                 ],
@@ -790,8 +784,8 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                       controller: refCtrl,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'தலைப்பு / வேத ஆதாரம் (உதா: ஆராதனை பாடல் / யோவான் 3:16)',
-                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 12.5),
+                        hintText: 'தலைப்பு / வேத ஆதாரம்',
+                        hintStyle: const TextStyle(color: Colors.white38),
                         filled: true,
                         fillColor: const Color(0xFF0F1115),
                         border: OutlineInputBorder(
@@ -851,19 +845,10 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.amberAccent,
-                            side: BorderSide(
-                              color: pickedImg != null
-                                  ? Colors.tealAccent
-                                  : Colors.amberAccent,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
+                            side: const BorderSide(color: Colors.amberAccent),
                           ),
                           icon: const Icon(Icons.image, size: 16),
-                          label: Text(
-                            pickedImg != null ? 'படம் தேர்வு ✓' : 'புகைப்படம்',
-                            style: const TextStyle(fontSize: 12),
-                          ),
+                          label: const Text('புகைப்படம்'),
                           onPressed: () async {
                             final picker = ImagePicker();
                             final file = await picker.pickImage(
@@ -881,19 +866,10 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.tealAccent,
-                            side: BorderSide(
-                              color: pickedVideo != null
-                                  ? Colors.amberAccent
-                                  : Colors.tealAccent,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
+                            side: const BorderSide(color: Colors.tealAccent),
                           ),
                           icon: const Icon(Icons.videocam_rounded, size: 17),
-                          label: Text(
-                            pickedVideo != null ? 'வீடியோ தேர்வு ✓' : 'வீடியோ',
-                            style: const TextStyle(fontSize: 12),
-                          ),
+                          label: const Text('வீடியோ'),
                           onPressed: () async {
                             final picker = ImagePicker();
                             final file = await picker.pickVideo(
@@ -910,41 +886,6 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                         ),
                       ],
                     ),
-                    if (pickedVideo != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.teal.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.video_file,
-                                color: Colors.tealAccent, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                p.basename(pickedVideo!),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.tealAccent,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close,
-                                  color: Colors.white54, size: 16),
-                              onPressed: () =>
-                                  setModalState(() => pickedVideo = null),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -968,9 +909,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                                 : authorCtrl.text.trim(),
                             'author_role': 'Youth Member • The Holy Nation',
                             'ref_title': refCtrl.text.trim().isEmpty
-                                ? (pickedVideo != null
-                                    ? 'Youth Worship / Testimony Video'
-                                    : 'வேத தியானம்')
+                                ? 'வேத தியானம்'
                                 : refCtrl.text.trim(),
                             'body_text': bodyCtrl.text.trim().isEmpty
                                 ? 'கிறிஸ்துவுக்குள் அன்பின் பகிர்வு!'
@@ -1194,7 +1133,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                   controller: cityCtrl,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    hintText: 'ஊர் / சபை (உதா: Chennai / Mayabunder)',
+                    hintText: 'ஊர் / சபை',
                     hintStyle: const TextStyle(color: Colors.white38),
                     filled: true,
                     fillColor: const Color(0xFF0F1115),
@@ -1239,6 +1178,9 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                         'bio': bioCtrl.text.trim().isEmpty
                             ? 'The Holy Nation Youth'
                             : bioCtrl.text.trim(),
+                        'church_type': _myChurchType,
+                        'favorite_book': _myFavBook,
+                        'spiritual_category': _myCategory,
                         'status': 'accepted',
                         'avatar_color': 0xFF283593,
                         'is_online': 1,
@@ -1263,7 +1205,6 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
   void _openCreateGroupSheet() {
     final TextEditingController nameCtrl = TextEditingController();
     final TextEditingController descCtrl = TextEditingController();
-    String category = 'ஜெபக் குழு (Prayer)';
     final acceptedFriends =
         _friends.where((f) => f['status'] == 'accepted').toList();
     final Set selectedMemberNames = {};
@@ -1299,7 +1240,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                       controller: nameCtrl,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'குழுவின் பெயர் (உதா: Bible Study Youth)',
+                        hintText: 'குழுவின் பெயர்',
                         hintStyle: const TextStyle(color: Colors.white38),
                         filled: true,
                         fillColor: const Color(0xFF0F1115),
@@ -1347,7 +1288,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                                 fontSize: 12,
                               ),
                             ),
-                            onSelected: (val) {
+                            onSelected: (_) {
                               setModalState(() {
                                 if (selectedMemberNames.contains(f['name'])) {
                                   selectedMemberNames.remove(f['name']);
@@ -1375,7 +1316,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                           final memberList = ['நீங்கள்', ...selectedMemberNames];
                           final gId = await _db!.insert('youth_groups', {
                             'name': gName,
-                            'category': category,
+                            'category': 'வாலிபர் ஐக்கியம்',
                             'description': descCtrl.text.trim().isEmpty
                                 ? 'கிறிஸ்துவுக்குள் வளரும் வாலிபர் குழு'
                                 : descCtrl.text.trim(),
@@ -1392,7 +1333,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                             'sender_name': 'நீங்கள் (You)',
                             'is_me': 1,
                             'message_text':
-                                'புதிய குழு "$gName" தொடங்கப்பட்டுள்ளது! அனைவரையும் அன்புடன் வரவேற்கிறோம்.',
+                                'புதிய குழு "$gName" தொடங்கப்பட்டுள்ளது!',
                             'verse_tag': 'மத்தேயு 18:20',
                             'sent_time': 'இப்போது',
                           });
@@ -1574,17 +1515,6 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
               ),
             ),
           ),
-          if (filteredPosts.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  'இந்தப் பிரிவில் இன்னும் பதிவுகள் இல்லை. புதிய பதிவை உருவாக்குங்கள்!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, fontSize: 14),
-                ),
-              ),
-            ),
           for (final post in filteredPosts) _buildPostCard(post),
         ],
       ),
@@ -1806,7 +1736,8 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
       if (_friendSearch.isEmpty) return true;
       final q = _friendSearch.toLowerCase();
       return (f['name'] ?? '').toString().toLowerCase().contains(q) ||
-          (f['city'] ?? '').toString().toLowerCase().contains(q);
+          (f['city'] ?? '').toString().toLowerCase().contains(q) ||
+          (f['church_type'] ?? '').toString().toLowerCase().contains(q);
     }).toList();
 
     final pending = matching.where((f) => f['status'] == 'pending').toList();
@@ -1821,7 +1752,7 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
           style: const TextStyle(color: Colors.white),
           onChanged: (val) => setState(() => _friendSearch = val.trim()),
           decoration: InputDecoration(
-            hintText: 'நண்பர்கள் அல்லது ஊரைத் தேடுங்கள்...',
+            hintText: 'நண்பர்கள், சபை அல்லது ஊரைத் தேடுங்கள்...',
             hintStyle: const TextStyle(color: Colors.white38, fontSize: 13.5),
             prefixIcon: const Icon(Icons.search, color: Colors.white54),
             filled: true,
@@ -1862,10 +1793,9 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                   ),
                 ),
                 subtitle: Text(
-                  '${f['city']} • ${f['bio']}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  _getMatchReason(f),
+                  style: const TextStyle(
+                      color: Colors.tealAccent, fontSize: 11.5),
                 ),
                 trailing: ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -1951,7 +1881,6 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.chat_rounded, color: Color(0xFFE4AF37)),
-                tooltip: 'தனிப்பட்ட சாட்',
                 onPressed: () => _openChatRoom(
                   chatKey: 'friend_${f['id']}',
                   chatTitle: f['name'] ?? 'Friend',
@@ -1964,11 +1893,11 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
         if (suggested.isNotEmpty) ...[
           const SizedBox(height: 16),
           const Text(
-            'புதிய வாலிப நண்பர்கள் (Suggested)',
+            'உங்களுடன் ஒத்த விருப்பமுள்ள நண்பர்கள் (Smart Matches)',
             style: TextStyle(
               color: Colors.tealAccent,
               fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontSize: 13.5,
             ),
           ),
           const SizedBox(height: 8),
@@ -1990,11 +1919,25 @@ class _CommunityScreenState extends State with TickerProviderStateMixin {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                subtitle: Text(
-                  '${f['city']} • ${f['bio']}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getMatchReason(f),
+                      style: const TextStyle(
+                        color: Color(0xFFE4AF37),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '${f['city']} • ${f['bio']}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                  ],
                 ),
                 trailing: OutlinedButton(
                   style: OutlinedButton.styleFrom(
